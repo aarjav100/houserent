@@ -1,4 +1,5 @@
 const multer = require('multer');
+const path = require('path');
 const { storage } = require('../config/cloudinary');
 
 function checkFileType(file, cb) {
