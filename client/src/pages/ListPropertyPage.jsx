@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft, ArrowRight, Check, Upload } from 'lucide-react';
+import { Loader2, ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
 import { propertyService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const ListPropertyPage = ({ showToast }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -49,6 +50,41 @@ const ListPropertyPage = ({ showToast }) => {
     } else {
       setFormData({ ...formData, amenities: [...current, amenity] });
     }
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', file);
+
+    setUploading(true);
+    try {
+      const imageUrl = await propertyService.uploadImage(uploadFormData);
+      // Ensure the URL is absolute for the image preview
+      const fullUrl = imageUrl.startsWith('http') 
+        ? imageUrl 
+        : `${import.meta.env.VITE_API_URL.replace('/api', '')}${imageUrl}`;
+        
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, fullUrl]
+      }));
+      showToast("Image uploaded successfully!");
+    } catch (error) {
+      console.error('Upload Error:', error);
+      showToast("Failed to upload image");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -193,11 +229,42 @@ const ListPropertyPage = ({ showToast }) => {
                 ))}
               </div>
 
-              <div className="p-10 border-2 border-dashed border-[#5B4FCF] bg-indigo-50 rounded-3xl text-center group cursor-pointer hover:bg-indigo-100 transition-all">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {formData.images.map((img, idx) => (
+                  <div key={idx} className="relative group aspect-square">
+                    <img src={img} alt="Property" className="w-full h-full object-cover rounded-2xl border" />
+                    <button 
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={14}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div 
+                onClick={() => document.getElementById('imageInput').click()}
+                className="p-10 border-2 border-dashed border-[#5B4FCF] bg-indigo-50 rounded-3xl text-center group cursor-pointer hover:bg-indigo-100 transition-all"
+              >
+                 <input 
+                   id="imageInput"
+                   type="file" 
+                   className="hidden" 
+                   accept="image/*"
+                   onChange={handleImageUpload}
+                 />
                  <div className="flex flex-col items-center">
-                    <div className="p-4 bg-white rounded-full shadow-md mb-4 group-hover:scale-110 transition-transform"><Upload className="text-[#5B4FCF]" size={32}/></div>
-                    <div className="text-[#5B4FCF] font-bold text-lg mb-1">Upload Property Photos</div>
-                    <div className="text-sm text-gray-500">Drag and drop up to 5 images. (Mock implementation)</div>
+                    {uploading ? (
+                      <Loader2 className="animate-spin text-[#5B4FCF]" size={32}/>
+                    ) : (
+                      <div className="p-4 bg-white rounded-full shadow-md mb-4 group-hover:scale-110 transition-transform"><Upload className="text-[#5B4FCF]" size={32}/></div>
+                    )}
+                    <div className="text-[#5B4FCF] font-bold text-lg mb-1">
+                      {uploading ? 'Uploading...' : 'Upload Property Photos'}
+                    </div>
+                    <div className="text-sm text-gray-500">Click to select an image from your device</div>
                  </div>
               </div>
 

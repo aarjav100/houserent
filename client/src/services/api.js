@@ -40,6 +40,14 @@ export const propertyService = {
   delete: async (id) => {
     const { data } = await api.delete(`/properties/${id}`);
     return data;
+  },
+  uploadImage: async (formData) => {
+    const { data } = await api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
   }
 };
 
