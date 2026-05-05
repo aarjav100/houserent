@@ -8,6 +8,8 @@ const ListPropertyPage = ({ showToast }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -99,6 +101,31 @@ const ListPropertyPage = ({ showToast }) => {
       }
     } catch (error) {
       console.error('Geocoding error', error);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery) return;
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${searchQuery}&countrycodes=in&limit=5`);
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.error('Search error', error);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        if (mapInstance.current) {
+          mapInstance.current.setView([latitude, longitude], 15);
+          updateLocation(latitude, longitude, mapInstance.current);
+        }
+      }, (error) => {
+        showToast("Permission denied for location");
+      });
     }
   };
 
@@ -264,8 +291,43 @@ const ListPropertyPage = ({ showToast }) => {
           {step === 2 && (
             <div className="space-y-6 animate-in fade-in duration-500">
               <h2 className="text-2xl font-bold mb-4">Select Location on Map</h2>
-              <p className="text-gray-500 text-sm mb-6">Click on the map to pin your property's exact location. We'll automatically fetch the address.</p>
               
+              {/* Search & Locate Bar */}
+              <div className="flex gap-2 mb-4">
+                <div className="relative flex-1">
+                  <input 
+                    type="text" 
+                    value={searchQuery} 
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF]" 
+                    placeholder="Search city or area in India..."
+                  />
+                  {searchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-xl mt-1 shadow-2xl z-50 overflow-hidden">
+                      {searchResults.map((res, i) => (
+                        <div 
+                          key={i} 
+                          onClick={() => {
+                            const lat = parseFloat(res.lat);
+                            const lon = parseFloat(res.lon);
+                            mapInstance.current.setView([lat, lon], 15);
+                            updateLocation(lat, lon, mapInstance.current);
+                            setSearchResults([]);
+                            setSearchQuery(res.display_name);
+                          }}
+                          className="p-3 hover:bg-indigo-50 cursor-pointer text-sm border-b last:border-0 border-gray-100"
+                        >
+                          {res.display_name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button type="button" onClick={handleSearch} className="px-6 bg-[#5B4FCF] text-white rounded-xl font-bold hover:bg-[#4a3fb3]">Search</button>
+                <button type="button" onClick={useCurrentLocation} className="px-6 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600">Locate Me</button>
+              </div>
+
               <div ref={mapRef} className="w-full h-80 rounded-2xl border-2 border-gray-100 shadow-inner mb-8 z-0"></div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

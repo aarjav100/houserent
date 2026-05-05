@@ -26,11 +26,15 @@ const propertySchema = new mongoose.Schema({
     },
     latitude: {
         type: Number,
-        required: [true, 'Please add latitude']
+        required: [true, 'Please pin your location on the map'],
+        min: [8.0, 'Latitude must be within India (min 8.0)'],
+        max: [38.0, 'Latitude must be within India (max 38.0)']
     },
     longitude: {
         type: Number,
-        required: [true, 'Please add longitude']
+        required: [true, 'Please pin your location on the map'],
+        min: [68.0, 'Longitude must be within India (min 68.0)'],
+        max: [98.0, 'Longitude must be within India (max 98.0)']
     },
     priceType: {
         type: String,
