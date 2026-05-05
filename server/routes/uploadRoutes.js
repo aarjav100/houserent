@@ -17,7 +17,13 @@ router.post('/', protect, (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
-    res.send(req.file.path);
+    // If it's a Cloudinary URL, it will start with 'http'
+    // If it's local, we ensure it has a leading slash
+    const finalPath = req.file.path.startsWith('http') 
+      ? req.file.path 
+      : `/${req.file.path.replace(/\\/g, '/')}`;
+
+    res.send(finalPath);
   });
 });
 
