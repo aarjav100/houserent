@@ -25,8 +25,12 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
       // In a real scenario, the backend would have a specific route for user properties
       // For now, we'll filter them if the backend supports owner populate or filter
       const data = await propertyService.getAll(); 
-      const filtered = data.filter(p => p.owner === user._id || p.owner?._id === user._id);
-      setMyProperties(filtered);
+      if (Array.isArray(data)) {
+        const filtered = data.filter(p => p.owner === user._id || p.owner?._id === user._id);
+        setMyProperties(filtered);
+      } else {
+        setMyProperties([]);
+      }
     } catch (error) {
       console.error('Failed to fetch my properties', error);
     } finally {

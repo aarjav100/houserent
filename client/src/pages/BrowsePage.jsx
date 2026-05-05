@@ -22,7 +22,7 @@ const BrowsePage = ({ onSave, savedProperties }) => {
     setLoading(true);
     try {
       const data = await propertyService.getAll(filters);
-      setProperties(data);
+      setProperties(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch properties', error);
     } finally {
