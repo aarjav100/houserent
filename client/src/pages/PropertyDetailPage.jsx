@@ -11,6 +11,13 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const getImageUrl = (url) => {
+    if (!url) return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6';
+    if (url.startsWith('http')) return url;
+    const baseUrl = import.meta.env.VITE_API_URL.replace('/api', '');
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   useEffect(() => {
     fetchProperty();
   }, [id]);
@@ -45,14 +52,16 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
       {/* Gallery */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 h-[500px]">
         <div className="md:col-span-3 rounded-2xl overflow-hidden shadow-sm relative">
-          <img src={property.images[0] || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6'} alt="Main" className="w-full h-full object-cover" />
+          <img src={getImageUrl(property.images[0])} alt="Main" className="w-full h-full object-cover" />
           <button onClick={() => onSave(property._id)} className="absolute top-6 right-6 p-4 bg-white/90 rounded-full shadow-lg hover:bg-white transition">
             <Heart size={24} className={isSaved ? "fill-red-500 text-red-500" : "text-gray-500"} />
           </button>
         </div>
         <div className="hidden md:flex flex-col gap-4 h-full">
           {property.images.slice(1,3).map((img, i) => (
-            <div key={i} className="flex-1 rounded-2xl overflow-hidden shadow-sm"><img src={img} alt="Thumb" className="w-full h-full object-cover" /></div>
+            <div key={i} className="flex-1 rounded-2xl overflow-hidden shadow-sm">
+              <img src={getImageUrl(img)} alt="Thumb" className="w-full h-full object-cover" />
+            </div>
           ))}
           {property.images.length < 2 && (
             <div className="flex-1 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400">No more images</div>

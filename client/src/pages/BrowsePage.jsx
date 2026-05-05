@@ -7,6 +7,13 @@ const BrowsePage = ({ onSave, savedProperties }) => {
   const [view, setView] = useState('grid');
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const getImageUrl = (url) => {
+    if (!url) return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800';
+    if (url.startsWith('http')) return url;
+    const baseUrl = import.meta.env.VITE_API_URL.replace('/api', '');
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
   const [filters, setFilters] = useState({
     type: '',
     city: '',
@@ -118,7 +125,7 @@ const BrowsePage = ({ onSave, savedProperties }) => {
                     title: p.title,
                     location: `${p.address.city}, ${p.address.state}`,
                     price: p.price,
-                    image: p.images[0] || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800',
+                    image: getImageUrl(p.images[0]),
                     type: p.type,
                     listingType: p.status === 'For Rent' ? 'Rent' : 'Sale',
                     bedrooms: p.bedrooms,
