@@ -97,12 +97,18 @@ const ListPropertyPage = ({ showToast }) => {
 
     setLoading(true);
     try {
-      // Mock images for now since we haven't implemented full upload yet
-      const submissionData = {
+      // Format data to match backend schema requirements
+      const formattedData = {
         ...formData,
+        description: formData.description || `Beautiful ${formData.type} in ${formData.address.city}`,
+        type: formData.type.toLowerCase(),
+        status: formData.status.toLowerCase().replace(' ', '-'),
+        latitude: 19.0760, // Default to Mumbai lat for now
+        longitude: 72.8777, // Default to Mumbai lng for now
         images: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6']
       };
-      await propertyService.create(submissionData);
+      
+      await propertyService.create(formattedData);
       showToast("Property listed successfully!");
       navigate('/dashboard');
     } catch (error) {
@@ -145,10 +151,10 @@ const ListPropertyPage = ({ showToast }) => {
                 <div>
                   <label className="block text-sm font-semibold mb-2">Property Type</label>
                   <select name="type" value={formData.type} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all">
-                    <option>Apartment</option>
-                    <option>Villa</option>
-                    <option>Studio</option>
-                    <option>Office</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="villa">Villa</option>
+                    <option value="house">House</option>
+                    <option value="studio">Studio</option>
                   </select>
                 </div>
                 <div>
