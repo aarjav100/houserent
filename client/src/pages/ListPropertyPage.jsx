@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
 import { propertyService } from '../services/api';
@@ -26,9 +26,81 @@ const ListPropertyPage = ({ showToast }) => {
       state: '',
       zipCode: ''
     },
+    latitude: null,
+    longitude: null,
     amenities: [],
     images: []
   });
+
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+  const markerRef = useRef(null);
+
+  useEffect(() => {
+    if (step === 2 && mapRef.current && !mapInstance.current && window.L) {
+      const defaultLat = 20.5937; // Center of India
+      const defaultLng = 78.9629;
+      
+      const map = window.L.map(mapRef.current).setView([defaultLat, defaultLng], 5);
+      
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      map.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        updateLocation(lat, lng, map);
+      });
+
+      mapInstance.current = map;
+    }
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [step]);
+
+  const updateLocation = async (lat, lng, map) => {
+    // Add/Move Marker
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+    } else {
+      markerRef.current = window.L.marker([lat, lng], { draggable: true }).addTo(map);
+      markerRef.current.on('dragend', (event) => {
+        const newPos = event.target.getLatLng();
+        updateLocation(newPos.lat, newPos.lng, map);
+      });
+    }
+
+    // Reverse Geocode
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const data = await response.json();
+      
+      if (data.address) {
+        setFormData(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+          address: {
+            fullAddress: data.display_name,
+            city: data.address.city || data.address.town || data.address.village || '',
+            state: data.address.state || '',
+            zipCode: data.address.postcode || ''
+          }
+        }));
+        if (typeof showToast === 'function') {
+           showToast(`Location Selected: ${data.address.city || 'Success'}`);
+        }
+      }
+    } catch (error) {
+      console.error('Geocoding error', error);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -107,8 +179,8 @@ const ListPropertyPage = ({ showToast }) => {
         description: formData.description || `Beautiful ${formData.type} in ${formData.address.city}`,
         type: formData.type.toLowerCase(),
         status: formData.status.toLowerCase().replace(' ', '-'),
-        latitude: 19.0760, // Default to Mumbai lat for now
-        longitude: 72.8777, // Default to Mumbai lng for now
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         images: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6']
       };
       
@@ -191,11 +263,15 @@ const ListPropertyPage = ({ showToast }) => {
 
           {step === 2 && (
             <div className="space-y-6 animate-in fade-in duration-500">
-              <h2 className="text-2xl font-bold mb-6">Location & Details</h2>
+              <h2 className="text-2xl font-bold mb-4">Select Location on Map</h2>
+              <p className="text-gray-500 text-sm mb-6">Click on the map to pin your property's exact location. We'll automatically fetch the address.</p>
+              
+              <div ref={mapRef} className="w-full h-80 rounded-2xl border-2 border-gray-100 shadow-inner mb-8 z-0"></div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold mb-2">Full Address</label>
-                  <input name="address.fullAddress" type="text" value={formData.address.fullAddress} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all" required/>
+                  <label className="block text-sm font-semibold mb-2">Verified Address (Fetched from Map)</label>
+                  <input name="address.fullAddress" type="text" readOnly value={formData.address.fullAddress} className="w-full p-4 bg-gray-100 rounded-xl border border-gray-200 outline-none text-gray-600 italic" placeholder="Click on map to set address..." required/>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2">City</label>
@@ -218,7 +294,13 @@ const ListPropertyPage = ({ showToast }) => {
                 <button type="button" onClick={()=>setStep(1)} className="px-10 py-4 bg-gray-100 text-gray-700 rounded-2xl font-bold flex items-center gap-2 hover:bg-gray-200 transition">
                   <ArrowLeft size={20}/> Back
                 </button>
-                <button type="button" onClick={()=>setStep(3)} className="px-10 py-4 bg-[#5B4FCF] text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-[#4a3fb3] transition shadow-lg shadow-indigo-100">
+                <button type="button" onClick={()=>{
+                  if (!formData.latitude) {
+                    showToast("Please pin your location on the map first!");
+                    return;
+                  }
+                  setStep(3);
+                }} className="px-10 py-4 bg-[#5B4FCF] text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-[#4a3fb3] transition shadow-lg shadow-indigo-100">
                   Next Step <ArrowRight size={20}/>
                 </button>
               </div>
