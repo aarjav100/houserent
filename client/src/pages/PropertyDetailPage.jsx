@@ -2,16 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2 } from 'lucide-react';
 import { propertyService } from '../services/api';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-
-// Fix for default marker icon using standard CDN paths to avoid build issues
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import { useAuth } from '../context/AuthContext';
 
 const primaryColor = '#5B4FCF';
 
@@ -95,24 +86,9 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
           </div>
 
           <h2 className="text-2xl font-bold mb-4">Location</h2>
-          <div className="w-full h-96 rounded-2xl overflow-hidden shadow-inner border border-gray-100 z-0 relative">
-             <MapContainer 
-               center={[parseFloat(property.latitude) || 28.6139, parseFloat(property.longitude) || 77.2090]} 
-               zoom={13} 
-               style={{ height: '100%', width: '100%' }}
-               scrollWheelZoom={false}
-             >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <Marker position={[parseFloat(property.latitude) || 28.6139, parseFloat(property.longitude) || 77.2090]}>
-                  <Popup>
-                    <div className="font-bold">{property.title}</div>
-                    <div className="text-sm">{property.address.city}</div>
-                  </Popup>
-                </Marker>
-             </MapContainer>
+          <div className="w-full h-80 bg-gray-100 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
+             <MapPin size={48} className="text-[#5B4FCF] opacity-50 mb-4" />
+             <p className="text-gray-500 font-medium">Map View for {property.address.city}</p>
           </div>
         </div>
 
