@@ -38,10 +38,14 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
     if (window.confirm('Are you sure you want to delete this listing?')) {
       try {
         await propertyService.delete(id);
-        showToast('Listing deleted successfully!');
+        if (typeof showToast === 'function') {
+          showToast('Listing deleted successfully!');
+        }
         fetchMyProperties();
       } catch (error) {
-        showToast('Failed to delete listing');
+        if (typeof showToast === 'function') {
+          showToast('Failed to delete listing');
+        }
       }
     }
   };
@@ -131,7 +135,11 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
               <div><label className="block text-sm font-semibold mb-2">Email</label><input type="email" readOnly value={user.email} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none" /></div>
               
               <div className="flex gap-4 pt-4">
-                <button className="flex-1 px-8 py-3 bg-[#5B4FCF] text-white rounded-xl font-bold shadow-lg shadow-indigo-100" onClick={() => showToast('Profile update feature coming soon!')}>Update Profile</button>
+                <button className="flex-1 px-8 py-3 bg-[#5B4FCF] text-white rounded-xl font-bold shadow-lg shadow-indigo-100" onClick={() => {
+                  if (typeof showToast === 'function') {
+                    showToast('Profile update feature coming soon!');
+                  }
+                }}>Update Profile</button>
                 <button className="flex-1 px-8 py-3 border-2 border-red-500 text-red-500 rounded-xl font-bold hover:bg-red-50" onClick={logout}>Logout</button>
               </div>
            </div>

@@ -71,10 +71,14 @@ const ListPropertyPage = ({ showToast }) => {
         ...prev,
         images: [...prev.images, fullUrl]
       }));
-      showToast("Image uploaded successfully!");
+      if (typeof showToast === 'function') {
+        showToast("Image uploaded successfully!");
+      }
     } catch (error) {
       console.error('Upload Error:', error);
-      showToast("Failed to upload image");
+      if (typeof showToast === 'function') {
+        showToast("Failed to upload image");
+      }
     } finally {
       setUploading(false);
     }
@@ -109,11 +113,15 @@ const ListPropertyPage = ({ showToast }) => {
       };
       
       await propertyService.create(formattedData);
-      showToast("Property listed successfully!");
+      if (typeof showToast === 'function') {
+        showToast("Property listed successfully!");
+      }
       navigate('/dashboard');
     } catch (error) {
       console.error('Submission Error:', error);
-      showToast(error.response?.data?.message || error.message || "Failed to list property");
+      if (typeof showToast === 'function') {
+        showToast(error.response?.data?.message || error.message || "Failed to list property");
+      }
     } finally {
       setLoading(false);
     }
