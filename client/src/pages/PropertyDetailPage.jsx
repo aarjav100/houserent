@@ -5,17 +5,13 @@ import { propertyService } from '../services/api';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
-// Fix for default marker icon
-import markerIcon from 'leaflet/dist/images/marker-icon.png?url';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png?url';
-
-let DefaultIcon = L.icon({
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+// Fix for default marker icon using standard CDN paths to avoid build issues
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const primaryColor = '#5B4FCF';
 
@@ -101,7 +97,7 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
           <h2 className="text-2xl font-bold mb-4">Location</h2>
           <div className="w-full h-96 rounded-2xl overflow-hidden shadow-inner border border-gray-100 z-0 relative">
              <MapContainer 
-               center={[property.latitude || 28.6139, property.longitude || 77.2090]} 
+               center={[parseFloat(property.latitude) || 28.6139, parseFloat(property.longitude) || 77.2090]} 
                zoom={13} 
                style={{ height: '100%', width: '100%' }}
                scrollWheelZoom={false}
@@ -110,7 +106,7 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <Marker position={[property.latitude || 28.6139, property.longitude || 77.2090]}>
+                <Marker position={[parseFloat(property.latitude) || 28.6139, parseFloat(property.longitude) || 77.2090]}>
                   <Popup>
                     <div className="font-bold">{property.title}</div>
                     <div className="text-sm">{property.address.city}</div>
