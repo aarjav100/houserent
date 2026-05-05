@@ -70,7 +70,8 @@ const ListPropertyPage = ({ showToast }) => {
       showToast("Property listed successfully!");
       navigate('/dashboard');
     } catch (error) {
-      showToast(error || "Failed to list property");
+      console.error('Submission Error:', error);
+      showToast(error.response?.data?.message || error.message || "Failed to list property");
     } finally {
       setLoading(false);
     }
