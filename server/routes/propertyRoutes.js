@@ -7,15 +7,15 @@ const {
     updateProperty,
     deleteProperty
 } = require('../controllers/propertyController');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 
 router.route('/')
     .get(getProperties)
-    .post(protect, createProperty);
+    .post(protect, authorize('owner'), createProperty);
 
 router.route('/:id')
     .get(getPropertyById)
-    .put(protect, updateProperty)
-    .delete(protect, deleteProperty);
+    .put(protect, authorize('owner'), updateProperty)
+    .delete(protect, authorize('owner'), deleteProperty);
 
 module.exports = router;

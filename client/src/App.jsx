@@ -9,6 +9,7 @@ import { AuthProvider } from './context/AuthContext';
 // Components
 import Navbar from './components/common/Navbar';
 import Toast from './components/common/Toast';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -51,9 +52,21 @@ const App = () => {
               <Route path="/" element={<HomePage properties={MOCK_PROPERTIES} onSave={handleSave} savedProperties={savedProperties} />} />
               <Route path="/browse" element={<BrowsePage properties={MOCK_PROPERTIES} onSave={handleSave} savedProperties={savedProperties} />} />
               <Route path="/property/:id" element={<PropertyDetailPage properties={MOCK_PROPERTIES} onSave={handleSave} savedProperties={savedProperties} />} />
-              <Route path="/list-property" element={<ListPropertyPage showToast={showToast} />} />
-              <Route path="/dashboard" element={<DashboardPage properties={MOCK_PROPERTIES} savedProperties={savedProperties} onSave={handleSave} showToast={showToast} />} />
-              <Route path="/saved" element={<DashboardPage properties={MOCK_PROPERTIES} savedProperties={savedProperties} onSave={handleSave} showToast={showToast} />} />
+              <Route path="/list-property" element={
+                <ProtectedRoute allowedRoles={['owner']}>
+                  <ListPropertyPage showToast={showToast} />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <DashboardPage properties={MOCK_PROPERTIES} savedProperties={savedProperties} onSave={handleSave} showToast={showToast} />
+                </ProtectedRoute>
+              } />
+              <Route path="/saved" element={
+                <ProtectedRoute>
+                  <DashboardPage properties={MOCK_PROPERTIES} savedProperties={savedProperties} onSave={handleSave} showToast={showToast} />
+                </ProtectedRoute>
+              } />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
             </Routes>

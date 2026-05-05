@@ -23,7 +23,9 @@ const Navbar = ({ savedCount }) => {
             </Link>
             {user ? (
               <>
-                <Link to="/list-property" className="hover:text-[#5B4FCF] transition flex items-center gap-1"><PlusSquare size={18}/> List Property</Link>
+                {user.role === 'owner' && (
+                  <Link to="/list-property" className="hover:text-[#5B4FCF] transition flex items-center gap-1"><PlusSquare size={18}/> List Property</Link>
+                )}
                 <Link to="/dashboard" className="hover:text-[#5B4FCF] transition flex items-center gap-1"><LayoutDashboard size={18}/> Dashboard</Link>
                 <div className="border-l pl-4 flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-[#5B4FCF] font-bold text-xs">
@@ -43,7 +45,9 @@ const Navbar = ({ savedCount }) => {
         <div className="md:hidden bg-white px-4 pt-2 pb-4 space-y-2 shadow-lg absolute w-full">
           <Link to="/browse" className="block py-2 text-gray-600">Browse</Link>
           <Link to="/saved" className="block py-2 text-gray-600">Saved ({savedCount})</Link>
-          <Link to="/list-property" className="block py-2 text-gray-600">List Property</Link>
+          {user?.role === 'owner' && (
+            <Link to="/list-property" className="block py-2 text-gray-600">List Property</Link>
+          )}
           <Link to="/dashboard" className="block py-2 text-gray-600">Dashboard</Link>
         </div>
       )}
