@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2 } from 'lucide-react';
 import { propertyService } from '../services/api';
@@ -10,6 +10,8 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
   const { id } = useParams();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
 
   const getImageUrl = (url) => {
     if (!url) return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6';
@@ -17,6 +19,32 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
     const baseUrl = import.meta.env.VITE_API_URL.replace('/api', '');
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
+
+  useEffect(() => {
+    if (property && mapRef.current && !mapInstance.current && window.L) {
+      const lat = parseFloat(property.latitude) || 29.4727;
+      const lng = parseFloat(property.longitude) || 77.7085;
+      
+      const map = window.L.map(mapRef.current).setView([lat, lng], 13);
+      
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      window.L.marker([lat, lng]).addTo(map)
+        .bindPopup(`<b>${property.title}</b><br>${property.address.city}`)
+        .openPopup();
+
+      mapInstance.current = map;
+    }
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, [property]);
 
   useEffect(() => {
     fetchProperty();
@@ -95,9 +123,11 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
           </div>
 
           <h2 className="text-2xl font-bold mb-4">Location</h2>
-          <div className="w-full h-80 bg-gray-100 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
-             <MapPin size={48} className="text-[#5B4FCF] opacity-50 mb-4" />
-             <p className="text-gray-500 font-medium">Map View for {property.address.city}</p>
+          <div 
+            ref={mapRef}
+            className="w-full h-96 rounded-2xl border-2 border-gray-100 shadow-inner z-0"
+          >
+             {/* Map will be rendered here by Leaflet */}
           </div>
         </div>
 
