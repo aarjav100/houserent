@@ -27,6 +27,7 @@ const propertyRoutes = require('./routes/propertyRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -34,6 +35,7 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Static folders
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));

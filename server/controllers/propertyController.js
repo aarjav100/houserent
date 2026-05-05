@@ -32,7 +32,7 @@ exports.getProperties = async (req, res) => {
 // @access  Public
 exports.getPropertyById = async (req, res) => {
     try {
-        const property = await Property.findById(req.params.id).populate('owner', 'name email phone bio avatar');
+        const property = await Property.findById(req.params.id).populate('owner', 'name email bio avatar');
         
         if (property) {
             // Update views
@@ -52,6 +52,9 @@ exports.getPropertyById = async (req, res) => {
 // @access  Private (Agent/Admin)
 exports.createProperty = async (req, res) => {
     try {
+        const User = require('../models/User');
+        const user = await User.findById(req.user._id);
+
         const {
             title, description, type, status, price, priceType, area,
             bedrooms, bathrooms, parking, furnished, address, 
@@ -80,6 +83,11 @@ exports.createProperty = async (req, res) => {
         });
 
         const createdProperty = await property.save();
+
+        // Increment listing count
+        user.listingCount += 1;
+        await user.save();
+
         res.status(201).json(createdProperty);
     } catch (error) {
         res.status(500).json({ message: error.message });

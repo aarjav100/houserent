@@ -51,4 +51,26 @@ export const propertyService = {
   }
 };
 
+export const paymentService = {
+  createOrder: async () => {
+    const { data } = await api.post('/payment/create-order');
+    return data;
+  },
+  verifyPayment: async (paymentData) => {
+    const { data } = await api.post('/payment/verify', paymentData);
+    return data;
+  }
+};
+
+export const contactService = {
+  getContact: async (propertyId) => {
+    const { data } = await api.get(`/contact/${propertyId}`);
+    return data;
+  },
+  unlockContact: async (unlockData) => {
+    const { data } = await api.post('/contact/unlock', unlockData);
+    return data;
+  }
+};
+
 export default api;

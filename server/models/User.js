@@ -21,7 +21,11 @@ const userSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        default: ''
+        required: [true, 'Please add a phone number']
+    },
+    listingCount: {
+        type: Number,
+        default: 0
     },
     role: {
         type: String,

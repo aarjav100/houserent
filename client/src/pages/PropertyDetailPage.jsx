@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2 } from 'lucide-react';
-import { propertyService } from '../services/api';
+import { propertyService, contactService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const primaryColor = '#5B4FCF';
@@ -10,8 +10,11 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
   const { id } = useParams();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [contactInfo, setContactInfo] = useState(null);
+  const [revealing, setRevealing] = useState(false);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  const { user } = useAuth();
 
   const getImageUrl = (url) => {
     if (!url) return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6';
@@ -59,6 +62,23 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
       console.error('Failed to fetch property details', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRevealContact = async () => {
+    if (!user) {
+      alert("Please login to see contact details");
+      return;
+    }
+    setRevealing(true);
+    try {
+      const data = await contactService.unlockContact({ propertyId: id });
+      setContactInfo(data);
+    } catch (error) {
+      console.error('Failed to reveal contact', error);
+      alert("Could not reveal contact. Please try again.");
+    } finally {
+      setRevealing(false);
     }
   };
 
@@ -147,8 +167,42 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
               </div>
             </div>
 
-            <button className="w-full py-4 rounded-xl text-white font-bold mb-4 flex items-center justify-center gap-2 transition hover:opacity-90" style={{ backgroundColor: primaryColor }}><Phone size={20}/> Call {property.owner?.phone || 'Contact Info'}</button>
-            <button className="w-full py-4 rounded-xl border-2 border-[#5B4FCF] text-[#5B4FCF] font-bold flex items-center justify-center gap-2 hover:bg-indigo-50"><Mail size={20}/> Send Message</button>
+            <div className="space-y-3">
+              {contactInfo ? (
+                <>
+                  <a 
+                    href={`tel:${contactInfo.phone}`}
+                    className="w-full py-4 rounded-xl text-white font-bold flex items-center justify-center gap-2 transition hover:opacity-90" 
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <Phone size={20}/> {contactInfo.phone}
+                  </a>
+                  {contactInfo.whatsapp && (
+                    <a 
+                      href={`https://wa.me/${contactInfo.whatsapp}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-4 rounded-xl bg-green-500 text-white font-bold flex items-center justify-center gap-2 hover:bg-green-600 transition"
+                    >
+                      WhatsApp Owner
+                    </a>
+                  )}
+                </>
+              ) : (
+                <button 
+                  onClick={handleRevealContact}
+                  disabled={revealing}
+                  className="w-full py-4 rounded-xl text-white font-bold flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-70" 
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  {revealing ? <Loader2 className="animate-spin" size={20}/> : <Phone size={20}/>}
+                  {revealing ? 'Revealing...' : 'Contact Owner'}
+                </button>
+              )}
+              <button className="w-full py-4 rounded-xl border-2 border-[#5B4FCF] text-[#5B4FCF] font-bold flex items-center justify-center gap-2 hover:bg-indigo-50">
+                <Mail size={20}/> Send Message
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
-import { propertyService } from '../services/api';
+import { propertyService, paymentService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const ListPropertyPage = ({ showToast }) => {
@@ -189,18 +189,54 @@ const ListPropertyPage = ({ showToast }) => {
       images: prev.images.filter((_, i) => i !== index)
     }));
   };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      showToast("Please login to list a property");
-      navigate('/login');
-      return;
-    }
-
-    setLoading(true);
+  
+  const handlePayment = async () => {
     try {
-      // Format data to match backend schema requirements
+      const order = await paymentService.createOrder();
+      
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'your_razorpay_key_id',
+        amount: order.amount,
+        currency: order.currency,
+        name: "HouseHunt",
+        description: "Listing Fee for Property",
+        order_id: order.id,
+        handler: async (response) => {
+          try {
+            await paymentService.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            // Proceed to final submission
+            await finalSubmit();
+          } catch (err) {
+            showToast("Payment verification failed");
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone
+        },
+        theme: { color: "#5B4FCF" },
+        modal: {
+          ondismiss: () => setLoading(false)
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      console.error('Payment Error:', error);
+      showToast("Failed to initiate payment");
+      setLoading(false);
+    }
+  };
+
+  const finalSubmit = async () => {
+    try {
       const formattedData = {
         ...formData,
         description: formData.description || `Beautiful ${formData.type} in ${formData.address.city}`,
@@ -212,17 +248,29 @@ const ListPropertyPage = ({ showToast }) => {
       };
       
       await propertyService.create(formattedData);
-      if (typeof showToast === 'function') {
-        showToast("Property listed successfully!");
-      }
+      showToast("Property listed successfully!");
       navigate('/dashboard');
     } catch (error) {
-      console.error('Submission Error:', error);
-      if (typeof showToast === 'function') {
-        showToast(error.response?.data?.message || error.message || "Failed to list property");
-      }
-    } finally {
+      showToast(error.response?.data?.message || error.message || "Failed to list property");
       setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      showToast("Please login to list a property");
+      navigate('/login');
+      return;
+    }
+
+    setLoading(true);
+    
+    // Check if payment is needed (listingCount > 0)
+    if (user.listingCount > 0) {
+      await handlePayment();
+    } else {
+      await finalSubmit();
     }
   };
 
@@ -230,8 +278,19 @@ const ListPropertyPage = ({ showToast }) => {
     <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-extrabold mb-4">List Your Property</h1>
-        <p className="text-gray-500 mb-8">Reach thousands of potential renters and buyers</p>
-        <div className="flex justify-center gap-4">
+        <p className="text-gray-500 mb-4">Reach thousands of potential renters and buyers</p>
+        
+        {user?.listingCount === 0 ? (
+          <div className="inline-block px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-bold border border-green-100">
+            ✨ Your first listing is FREE!
+          </div>
+        ) : (
+          <div className="inline-block px-4 py-2 bg-amber-50 text-amber-700 rounded-full text-sm font-bold border border-amber-100">
+            💰 Listing Fee: ₹10 (Subsequent Listing)
+          </div>
+        )}
+
+        <div className="flex justify-center gap-4 mt-8">
            {[1,2,3].map(s => (
              <div key={s} className="flex flex-col items-center gap-2">
                <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold border-2 transition-all ${step >= s ? 'bg-[#5B4FCF] border-[#5B4FCF] text-white shadow-lg shadow-indigo-100' : 'bg-white border-gray-200 text-gray-400'}`}>
