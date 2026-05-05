@@ -17,9 +17,11 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+
   const login = async (email, password) => {
     try {
-      const { data } = await axios.post('http://localhost:5001/api/auth/login', { email, password });
+      const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
       setUser(data);
       localStorage.setItem('user', JSON.stringify(data));
       return data;
@@ -30,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   const signup = async (userData) => {
     try {
-      const { data } = await axios.post('http://localhost:5001/api/auth/register', userData);
+      const { data } = await axios.post(`${API_URL}/auth/register`, userData);
       setUser(data);
       localStorage.setItem('user', JSON.stringify(data));
       return data;
