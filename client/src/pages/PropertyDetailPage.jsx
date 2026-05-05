@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2 } from 'lucide-react';
 import { propertyService } from '../services/api';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix for default marker icon
+import markerIcon from 'leaflet/dist/images/marker-icon.png?url';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png?url';
+
+let DefaultIcon = L.icon({
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const primaryColor = '#5B4FCF';
 
@@ -85,9 +99,24 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
           </div>
 
           <h2 className="text-2xl font-bold mb-4">Location</h2>
-          <div className="w-full h-80 bg-gray-100 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-gray-300">
-             <MapPin size={48} className="text-[#5B4FCF] opacity-50 mb-4" />
-             <p className="text-gray-500 font-medium">Map View for {property.address.city}</p>
+          <div className="w-full h-96 rounded-2xl overflow-hidden shadow-inner border border-gray-100 z-0 relative">
+             <MapContainer 
+               center={[property.latitude || 28.6139, property.longitude || 77.2090]} 
+               zoom={13} 
+               style={{ height: '100%', width: '100%' }}
+               scrollWheelZoom={false}
+             >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <Marker position={[property.latitude || 28.6139, property.longitude || 77.2090]}>
+                  <Popup>
+                    <div className="font-bold">{property.title}</div>
+                    <div className="text-sm">{property.address.city}</div>
+                  </Popup>
+                </Marker>
+             </MapContainer>
           </div>
         </div>
 
