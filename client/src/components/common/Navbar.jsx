@@ -106,5 +106,3 @@ const Navbar = ({ savedCount }) => {
 };
 
 export default Navbar;
-
-export default Navbar;
