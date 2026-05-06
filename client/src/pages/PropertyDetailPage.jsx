@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2 } from 'lucide-react';
 import { propertyService, contactService, paymentService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { motion } from 'framer-motion';
 
 const primaryColor = '#5B4FCF';
 
