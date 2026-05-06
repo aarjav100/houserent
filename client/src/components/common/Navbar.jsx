@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Home, PlusSquare, LayoutDashboard, Menu, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Home, PlusSquare, LayoutDashboard, Menu, X, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const primaryColor = '#5B4FCF';
 
 const Navbar = ({ savedCount }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    setIsOpen(false);
+  };
 
   return (
     <nav className="bg-white shadow-sm sticky top-0 z-40">
@@ -27,11 +34,19 @@ const Navbar = ({ savedCount }) => {
                   <Link to="/list-property" className="hover:text-[#5B4FCF] transition flex items-center gap-1"><PlusSquare size={18}/> List Property</Link>
                 )}
                 <Link to="/dashboard" className="hover:text-[#5B4FCF] transition flex items-center gap-1"><LayoutDashboard size={18}/> Dashboard</Link>
-                <div className="border-l pl-4 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-[#5B4FCF] font-bold text-xs">
-                    {user.name.charAt(0).toUpperCase()}
+                <div className="border-l pl-4 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-[#5B4FCF] font-bold text-xs">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-bold">{user.name}</span>
                   </div>
-                  <span className="text-sm font-bold">{user.name}</span>
+                  <button 
+                    onClick={handleLogout}
+                    className="flex items-center gap-1 text-red-500 hover:text-red-600 transition text-sm font-bold"
+                  >
+                    <LogOut size={16} /> Logout
+                  </button>
                 </div>
               </>
             ) : (
@@ -43,12 +58,24 @@ const Navbar = ({ savedCount }) => {
       </div>
       {isOpen && (
         <div className="md:hidden bg-white px-4 pt-2 pb-4 space-y-2 shadow-lg absolute w-full">
-          <Link to="/browse" className="block py-2 text-gray-600">Browse</Link>
-          <Link to="/saved" className="block py-2 text-gray-600">Saved ({savedCount})</Link>
-          {user?.role === 'owner' && (
-            <Link to="/list-property" className="block py-2 text-gray-600">List Property</Link>
+          <Link to="/browse" className="block py-2 text-gray-600" onClick={() => setIsOpen(false)}>Browse</Link>
+          <Link to="/saved" className="block py-2 text-gray-600" onClick={() => setIsOpen(false)}>Saved ({savedCount})</Link>
+          {user ? (
+            <>
+              {user.role === 'owner' && (
+                <Link to="/list-property" className="block py-2 text-gray-600" onClick={() => setIsOpen(false)}>List Property</Link>
+              )}
+              <Link to="/dashboard" className="block py-2 text-gray-600" onClick={() => setIsOpen(false)}>Dashboard</Link>
+              <button 
+                onClick={handleLogout}
+                className="w-full text-left py-2 text-red-500 font-bold flex items-center gap-2 border-t mt-2"
+              >
+                <LogOut size={18} /> Logout
+              </button>
+            </>
+          ) : (
+            <Link to="/login" className="block py-2 text-[#5B4FCF] font-bold" onClick={() => setIsOpen(false)}>Login</Link>
           )}
-          <Link to="/dashboard" className="block py-2 text-gray-600">Dashboard</Link>
         </div>
       )}
     </nav>

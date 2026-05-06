@@ -9,7 +9,17 @@ const PropertyCard = ({ property, isListView, onSave, isSaved }) => {
   return (
     <div onClick={() => navigate(`/property/${property.id}`)} className={`bg-white rounded-2xl shadow-sm hover:shadow-xl transition duration-300 cursor-pointer overflow-hidden border border-gray-100 ${isListView ? 'flex' : 'flex-col'}`}>
       <div className={`relative ${isListView ? 'w-1/3' : 'w-full h-60'}`}>
-        <img src={property.image} alt={property.title} className="w-full h-full object-cover" />
+        <img 
+          src={property.image || (property.images && property.images[0]) || "https://ik.imagekit.io/jain100/default-image.jpg"} 
+          alt="Main" 
+          className="w-full h-full object-cover" 
+          onLoad={() => console.log('Main image loaded:', property.image || (property.images && property.images[0]))}
+          onError={(e) => {
+            console.error('Main image failed:', property.image || (property.images && property.images[0]));
+            e.target.src = "https://images.unsplash.com/photo-1564013799919-ab600027ffc6";
+            e.target.onerror = null; 
+          }}
+        />
         <span className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">{property.type}</span>
         <button 
           onClick={(e) => { e.stopPropagation(); onSave(property.id); }} 

@@ -11,6 +11,7 @@ const BrowsePage = ({ onSave, savedProperties }) => {
   const getImageUrl = (url) => {
     if (!url) return 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800';
     if (url.startsWith('http')) return url;
+    // For local uploads that might still exist
     const baseUrl = import.meta.env.VITE_API_URL.replace('/api', '');
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
@@ -125,9 +126,10 @@ const BrowsePage = ({ onSave, savedProperties }) => {
                     title: p.title,
                     location: `${p.address.city}, ${p.address.state}`,
                     price: p.price,
-                    image: getImageUrl(p.images[0]),
+                    image: p.image || (p.images && p.images.length > 0 ? p.images[0] : 'https://ik.imagekit.io/jain100/default-image.jpg'),
+                    images: p.images || [],
                     type: p.type,
-                    listingType: p.status === 'For Rent' ? 'Rent' : 'Sale',
+                    listingType: p.status.toLowerCase().includes('rent') ? 'Rent' : 'Sale',
                     bedrooms: p.bedrooms,
                     bathrooms: p.bathrooms,
                     sqft: p.area

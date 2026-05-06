@@ -100,7 +100,14 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
               {myProperties.map(p => (
                 <div key={p._id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6">
                    <div className="flex items-center gap-4 w-full md:w-auto">
-                     <img src={getImageUrl(p.images[0])} alt={p.title} className="w-24 h-24 rounded-xl object-cover" />
+                     <img 
+                       src={p.images && p.images[0] ? getImageUrl(p.images[0]) : "https://images.unsplash.com/photo-1564013799919-ab600027ffc6"} 
+                       alt={p.title} 
+                       className="w-24 h-24 rounded-xl object-cover" 
+                       onError={(e) => {
+                         e.target.src = "https://images.unsplash.com/photo-1564013799919-ab600027ffc6";
+                       }}
+                     />
                      <div>
                        <h4 className="font-bold text-lg mb-1">{p.title}</h4>
                        <div className="text-gray-500 text-sm mb-2">{p.address.city}</div>

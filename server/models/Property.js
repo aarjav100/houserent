@@ -74,9 +74,11 @@ const propertySchema = new mongoose.Schema({
     amenities: [{
         type: String
     }],
-    images: [{
-        type: String
-    }],
+    images: {
+        type: [String],
+        required: [true, 'Please add at least one image URL'],
+        validate: [v => Array.isArray(v) && v.length > 0, 'Property must have at least one image']
+    },
     virtualTour: {
         type: String,
         default: ''
@@ -103,6 +105,21 @@ const propertySchema = new mongoose.Schema({
     verified: { type: Boolean, default: false },
     // Free contact views allowed before requiring unlock
     freeViewsAllowed: { type: Number, default: 1 },
+    videoUrl: {
+        type: String,
+        default: ''
+    },
+    pgDetails: {
+        genderAllowed: { type: String, enum: ['boys', 'girls', 'co-ed', 'none'], default: 'none' },
+        sharingType: { type: String, enum: ['single', 'double', 'triple', 'four-plus', 'none'], default: 'none' },
+        foodIncluded: { type: Boolean, default: false },
+        foodType: { type: String, enum: ['veg', 'non-veg', 'both', 'none'], default: 'none' },
+        curfewTime: { type: String, default: '' }
+    },
+    rating: {
+        average: { type: Number, default: 0 },
+        count: { type: Number, default: 0 }
+    },
 }, { timestamps: true });
 
 propertySchema.index({ 'address.city': 1, price: 1, type: 1 });

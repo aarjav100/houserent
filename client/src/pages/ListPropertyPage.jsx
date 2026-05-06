@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext';
 const ListPropertyPage = ({ showToast }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [images, setImages] = useState([]); // Store File objects
+  const [previews, setPreviews] = useState([]); // Store preview URLs
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
@@ -30,8 +31,7 @@ const ListPropertyPage = ({ showToast }) => {
     },
     latitude: null,
     longitude: null,
-    amenities: [],
-    images: []
+    amenities: []
   });
 
   const mapRef = useRef(null);
@@ -151,45 +151,31 @@ const ListPropertyPage = ({ showToast }) => {
     }
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const uploadFormData = new FormData();
-    uploadFormData.append('image', file);
-
-    setUploading(true);
-    try {
-      const imageUrl = await propertyService.uploadImage(uploadFormData);
-      // Ensure the URL is absolute for the image preview
-      const fullUrl = imageUrl.startsWith('http') 
-        ? imageUrl 
-        : `${import.meta.env.VITE_API_URL.replace('/api', '')}${imageUrl}`;
-        
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, fullUrl]
-      }));
-      if (typeof showToast === 'function') {
-        showToast("Image uploaded successfully!");
-      }
-    } catch (error) {
-      console.error('Upload Error:', error);
-      if (typeof showToast === 'function') {
-        showToast("Failed to upload image");
-      }
-    } finally {
-      setUploading(false);
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length + images.length > 5) {
+      showToast("Maximum 5 images allowed");
+      return;
     }
+
+    const newImages = [...images, ...files];
+    setImages(newImages);
+
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews([...previews, ...newPreviews]);
   };
 
   const removeImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+    const newImages = images.filter((_, i) => i !== index);
+    const newPreviews = previews.filter((_, i) => i !== index);
+    
+    // Revoke the URL to avoid memory leaks
+    URL.revokeObjectURL(previews[index]);
+    
+    setImages(newImages);
+    setPreviews(newPreviews);
   };
-  
+
   const handlePayment = async () => {
     try {
       const order = await paymentService.createOrder();
@@ -237,17 +223,30 @@ const ListPropertyPage = ({ showToast }) => {
 
   const finalSubmit = async () => {
     try {
-      const formattedData = {
-        ...formData,
-        description: formData.description || `Beautiful ${formData.type} in ${formData.address.city}`,
-        type: formData.type.toLowerCase(),
-        status: formData.status.toLowerCase().replace(' ', '-'),
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        images: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1564013799919-ab600027ffc6']
-      };
+      const data = new FormData();
       
-      await propertyService.create(formattedData);
+      // Append basic fields
+      data.append('title', formData.title);
+      data.append('description', formData.description || `Beautiful ${formData.type} in ${formData.address.city}`);
+      data.append('type', formData.type.toLowerCase());
+      data.append('status', formData.status.toLowerCase().replace(' ', '-'));
+      data.append('price', formData.price);
+      data.append('area', formData.area);
+      data.append('bedrooms', formData.bedrooms);
+      data.append('bathrooms', formData.bathrooms);
+      data.append('latitude', formData.latitude);
+      data.append('longitude', formData.longitude);
+      
+      // Append objects as JSON strings
+      data.append('address', JSON.stringify(formData.address));
+      data.append('amenities', JSON.stringify(formData.amenities));
+      
+      // Append images
+      images.forEach(file => {
+        data.append('images', file);
+      });
+      
+      await propertyService.create(data);
       showToast("Property listed successfully!");
       navigate('/dashboard');
     } catch (error) {
@@ -447,9 +446,16 @@ const ListPropertyPage = ({ showToast }) => {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {formData.images.map((img, idx) => (
+                {previews.map((img, idx) => (
                   <div key={idx} className="relative group aspect-square">
-                    <img src={img} alt="Property" className="w-full h-full object-cover rounded-2xl border" />
+                    <img 
+                      src={img} 
+                      alt="Property" 
+                      className="w-full h-full object-cover rounded-2xl border" 
+                      onError={(e) => {
+                        e.target.src = "https://ik.imagekit.io/jain100/default-image.jpg";
+                      }}
+                    />
                     <button 
                       type="button"
                       onClick={() => removeImage(idx)}
@@ -462,26 +468,25 @@ const ListPropertyPage = ({ showToast }) => {
               </div>
 
               <div 
-                onClick={() => document.getElementById('imageInput').click()}
-                className="p-10 border-2 border-dashed border-[#5B4FCF] bg-indigo-50 rounded-3xl text-center group cursor-pointer hover:bg-indigo-100 transition-all"
+                className="p-10 border-2 border-dashed border-[#5B4FCF] bg-indigo-50 rounded-3xl text-center group cursor-pointer hover:bg-indigo-100 transition-all relative"
               >
-                 <input 
-                   id="imageInput"
-                   type="file" 
-                   className="hidden" 
+                 <input
+                   type="file"
+                   multiple
                    accept="image/*"
-                   onChange={handleImageUpload}
+                   onChange={handleImageChange}
+                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                  />
                  <div className="flex flex-col items-center">
-                    {uploading ? (
+                    {loading ? (
                       <Loader2 className="animate-spin text-[#5B4FCF]" size={32}/>
                     ) : (
                       <div className="p-4 bg-white rounded-full shadow-md mb-4 group-hover:scale-110 transition-transform"><Upload className="text-[#5B4FCF]" size={32}/></div>
                     )}
                     <div className="text-[#5B4FCF] font-bold text-lg mb-1">
-                      {uploading ? 'Uploading...' : 'Upload Property Photos'}
+                      {images.length > 0 ? `${images.length} images selected` : 'Upload Property Photos'}
                     </div>
-                    <div className="text-sm text-gray-500">Click to select an image from your device</div>
+                    <div className="text-sm text-gray-500">Click to select images from your device (Max 5)</div>
                  </div>
               </div>
 

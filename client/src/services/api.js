@@ -52,8 +52,8 @@ export const propertyService = {
 };
 
 export const paymentService = {
-  createOrder: async () => {
-    const { data } = await api.post('/payment/create-order');
+  createOrder: async (amount) => {
+    const { data } = await api.post('/payment/create-order', { amount });
     return data;
   },
   verifyPayment: async (paymentData) => {

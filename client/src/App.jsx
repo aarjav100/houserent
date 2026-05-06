@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ImageKitProvider } from '@imagekit/react';
 import { MOCK_PROPERTIES } from './data';
 import { Home } from 'lucide-react';
 
@@ -19,6 +20,7 @@ import ListPropertyPage from './pages/ListPropertyPage';
 import DashboardPage from './pages/DashboardPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ImageKitDemo from './pages/ImageKitDemo';
 
 const primaryColor = '#5B4FCF';
 
@@ -43,15 +45,29 @@ const App = () => {
 
   return (
     <AuthProvider>
-      <Router>
+      <ImageKitProvider 
+        publicKey={import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY} 
+        urlEndpoint={import.meta.env.VITE_IMAGEKIT_URL_ENDPOINT} 
+        authenticator={async () => {
+          try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/upload/auth`);
+            if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+            const data = await response.json();
+            return data;
+          } catch (error) {
+            throw new Error(`Authentication request failed: ${error.message}`);
+          }
+        }}
+      >
+        <Router>
         <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50 selection:bg-indigo-100 selection:text-indigo-900">
           <Navbar savedCount={savedProperties.length} />
           
           <main className="flex-grow">
             <Routes>
-              <Route path="/" element={<HomePage properties={MOCK_PROPERTIES} onSave={handleSave} savedProperties={savedProperties} />} />
-              <Route path="/browse" element={<BrowsePage properties={MOCK_PROPERTIES} onSave={handleSave} savedProperties={savedProperties} />} />
-              <Route path="/property/:id" element={<PropertyDetailPage properties={MOCK_PROPERTIES} onSave={handleSave} savedProperties={savedProperties} />} />
+              <Route path="/" element={<HomePage onSave={handleSave} savedProperties={savedProperties} />} />
+              <Route path="/browse" element={<BrowsePage onSave={handleSave} savedProperties={savedProperties} />} />
+              <Route path="/property/:id" element={<PropertyDetailPage onSave={handleSave} savedProperties={savedProperties} />} />
               <Route path="/list-property" element={
                 <ProtectedRoute allowedRoles={['owner']}>
                   <ListPropertyPage showToast={showToast} />
@@ -69,6 +85,7 @@ const App = () => {
               } />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/imagekit" element={<ImageKitDemo />} />
             </Routes>
           </main>
 
@@ -87,8 +104,9 @@ const App = () => {
           <Toast message={toast.message} isVisible={toast.isVisible} />
         </div>
       </Router>
-    </AuthProvider>
-  );
+    </ImageKitProvider>
+  </AuthProvider>
+);
 };
 
 export default App;

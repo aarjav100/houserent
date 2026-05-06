@@ -8,14 +8,15 @@ const {
     deleteProperty
 } = require('../controllers/propertyController');
 const { protect, authorize } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 router.route('/')
     .get(getProperties)
-    .post(protect, authorize('owner'), createProperty);
+    .post(protect, authorize('owner', 'agent', 'pg-owner', 'admin'), upload.array('images', 5), createProperty);
 
 router.route('/:id')
     .get(getPropertyById)
-    .put(protect, authorize('owner'), updateProperty)
-    .delete(protect, authorize('owner'), deleteProperty);
+    .put(protect, authorize('owner', 'agent', 'pg-owner', 'admin'), upload.array('images', 5), updateProperty)
+    .delete(protect, authorize('owner', 'agent', 'pg-owner', 'admin'), deleteProperty);
 
 module.exports = router;

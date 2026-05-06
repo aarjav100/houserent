@@ -5,17 +5,27 @@ const crypto = require('crypto');
 const { protect } = require('../middleware/auth');
 const User = require('../models/User');
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// Initialize Razorpay only if keys are present
+let razorpay;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID !== 'your_razorpay_key_id') {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+} else {
+  console.warn('⚠️ Razorpay credentials are missing or using placeholders. Payment features will be disabled.');
+}
 
 // @desc    Create a Razorpay order
 // @route   POST /api/payment/create-order
 router.post('/create-order', protect, async (req, res) => {
+  if (!razorpay) {
+    return res.status(500).json({ message: 'Razorpay is not configured' });
+  }
   try {
+    const { amount } = req.body; // Amount in paise (e.g. 900 for ₹9)
     const options = {
-      amount: 1000, // Amount in paise (₹10 = 1000 paise)
+      amount: amount || 1000, 
       currency: 'INR',
       receipt: `receipt_${Date.now()}`,
     };
@@ -31,6 +41,9 @@ router.post('/create-order', protect, async (req, res) => {
 // @desc    Verify Razorpay payment
 // @route   POST /api/payment/verify
 router.post('/verify', protect, async (req, res) => {
+  if (!razorpay) {
+    return res.status(500).json({ message: 'Razorpay is not configured' });
+  }
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
   const sign = razorpay_order_id + "|" + razorpay_payment_id;

@@ -1,4 +1,22 @@
 const Property = require('../models/Property');
+const User = require('../models/User');
+const imagekit = require('../config/imagekit');
+
+// Helper to upload to ImageKit
+const uploadToImageKit = async (file) => {
+    try {
+        const response = await imagekit.upload({
+            file: file.buffer,
+            fileName: `${Date.now()}-${file.originalname}`,
+            folder: '/properties'
+        });
+        console.log('ImageKit Upload Success:', response.url);
+        return response.url;
+    } catch (error) {
+        console.error('ImageKit Upload Helper Error:', error);
+        throw new Error('ImageKit upload failed');
+    }
+};
 
 // @desc    Get all properties with filtering
 // @route   GET /api/properties
@@ -11,18 +29,22 @@ exports.getProperties = async (req, res) => {
         if (city) query['address.city'] = { $regex: city, $options: 'i' };
         if (type) query.type = type;
         if (status) query.status = status;
-        if (bedrooms) query.bedrooms = { $gte: Number(bedrooms) };
-        if (bathrooms) query.bathrooms = { $gte: Number(bathrooms) };
+        if (bedrooms && !isNaN(Number(bedrooms))) query.bedrooms = { $gte: Number(bedrooms) };
+        if (bathrooms && !isNaN(Number(bathrooms))) query.bathrooms = { $gte: Number(bathrooms) };
 
         if (minPrice || maxPrice) {
             query.price = {};
-            if (minPrice) query.price.$gte = Number(minPrice);
-            if (maxPrice) query.price.$lte = Number(maxPrice);
+            if (minPrice && !isNaN(Number(minPrice))) query.price.$gte = Number(minPrice);
+            if (maxPrice && !isNaN(Number(maxPrice))) query.price.$lte = Number(maxPrice);
+            
+            // Clean up empty price query
+            if (Object.keys(query.price).length === 0) delete query.price;
         }
 
         const properties = await Property.find(query).populate('owner', 'name email');
         res.json(properties);
     } catch (error) {
+        console.error('Error in getProperties:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -47,50 +69,87 @@ exports.getPropertyById = async (req, res) => {
     }
 };
 
-// @desc    Create a property
+// @desc    Create new property
 // @route   POST /api/properties
-// @access  Private (Agent/Admin)
+// @access  Private (Owner/Agent/Admin)
 exports.createProperty = async (req, res) => {
     try {
-        const User = require('../models/User');
-        const user = await User.findById(req.user._id);
+        console.log('--- START PROPERTY CREATION ---');
+        console.log('Body:', req.body);
+        console.log('Files received:', req.files ? req.files.length : 0);
 
-        const {
-            title, description, type, status, price, priceType, area,
-            bedrooms, bathrooms, parking, furnished, address, 
-            latitude, longitude, amenities, images, virtualTour
-        } = req.body;
+        let imageUrls = [];
 
-        const property = new Property({
-            title,
-            description,
-            type,
-            status,
-            price,
-            priceType,
-            area,
-            bedrooms,
-            bathrooms,
-            parking,
-            furnished,
+        // MANDATORY STEP: Upload images to ImageKit (using memory buffer)
+        if (req.files && req.files.length > 0) {
+            const uploadPromises = req.files.map(async (file) => {
+                console.log(`Uploading to ImageKit: ${file.originalname}`);
+                const response = await imagekit.upload({
+                    file: file.buffer, // Use buffer from memory storage
+                    fileName: Date.now() + "-" + file.originalname,
+                    folder: "/properties"
+                });
+                console.log("ImageKit Success URL:", response.url);
+                return response.url;
+            });
+            imageUrls = await Promise.all(uploadPromises);
+        }
+
+        if (imageUrls.length === 0) {
+            return res.status(400).json({ message: 'Please provide at least one image' });
+        }
+
+        // Parse fields from FormData
+        const parseNum = (val) => (val === undefined || val === null || val === '' || val === 'null') ? undefined : Number(val);
+
+        let address = req.body.address;
+        if (typeof address === 'string') {
+            try { address = JSON.parse(address); } catch (e) { address = {}; }
+        }
+
+        let pgDetails = req.body.pgDetails;
+        if (typeof pgDetails === 'string') {
+            try { pgDetails = JSON.parse(pgDetails); } catch (e) { pgDetails = {}; }
+        }
+
+        let amenities = req.body.amenities;
+        if (typeof amenities === 'string') {
+            try { amenities = JSON.parse(amenities); } catch (e) { amenities = amenities ? [amenities] : []; }
+        }
+
+        const propertyData = {
+            ...req.body,
+            price: parseNum(req.body.price),
+            area: parseNum(req.body.area),
+            bedrooms: parseNum(req.body.bedrooms),
+            bathrooms: parseNum(req.body.bathrooms),
+            latitude: parseNum(req.body.latitude),
+            longitude: parseNum(req.body.longitude),
+            parking: parseNum(req.body.parking),
             address,
-            latitude,
-            longitude,
-            amenities,
-            images,
-            virtualTour,
+            pgDetails,
+            amenities: Array.isArray(amenities) ? amenities : [],
+            images: imageUrls,
             owner: req.user._id
-        });
+        };
 
+        const property = new Property(propertyData);
         const createdProperty = await property.save();
 
-        // Increment listing count
-        user.listingCount += 1;
-        await user.save();
+        // Increment listing count on the User model
+        const user = await User.findById(req.user._id);
+        if (user) {
+            user.listingCount = (user.listingCount || 0) + 1;
+            await user.save();
+        }
 
+        console.log('Property created in MongoDB with images:', createdProperty.images);
         res.status(201).json(createdProperty);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Create Property Error:', error);
+        res.status(500).json({ 
+            message: error.name === 'ValidationError' ? Object.values(error.errors).map(e => e.message).join(', ') : error.message 
+        });
     }
 };
 
@@ -99,38 +158,78 @@ exports.createProperty = async (req, res) => {
 // @access  Private (Owner/Admin)
 exports.updateProperty = async (req, res) => {
     try {
-        const property = await Property.findById(req.params.id);
+        console.log('--- START PROPERTY UPDATE ---');
+        let property = await Property.findById(req.params.id);
 
-        if (property) {
-            if (property.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-                return res.status(401).json({ message: 'Not authorized to update this property' });
-            }
-
-            property.title = req.body.title || property.title;
-            property.description = req.body.description || property.description;
-            property.type = req.body.type || property.type;
-            property.status = req.body.status || property.status;
-            property.price = req.body.price || property.price;
-            property.priceType = req.body.priceType || property.priceType;
-            property.area = req.body.area || property.area;
-            property.bedrooms = req.body.bedrooms || property.bedrooms;
-            property.bathrooms = req.body.bathrooms || property.bathrooms;
-            property.parking = req.body.parking || property.parking;
-            property.furnished = req.body.furnished || property.furnished;
-            property.address = req.body.address || property.address;
-            property.latitude = req.body.latitude || property.latitude;
-            property.longitude = req.body.longitude || property.longitude;
-            property.amenities = req.body.amenities || property.amenities;
-            property.images = req.body.images || property.images;
-            property.virtualTour = req.body.virtualTour || property.virtualTour;
-
-            const updatedProperty = await property.save();
-            res.json(updatedProperty);
-        } else {
-            res.status(404).json({ message: 'Property not found' });
+        if (!property) {
+            return res.status(404).json({ message: 'Property not found' });
         }
+
+        // Check if user is owner or admin
+        if (property.owner.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(401).json({ message: 'User not authorized to update this property' });
+        }
+
+        let imageUrls = property.images || [];
+
+        // If new images are uploaded, add them to ImageKit
+        if (req.files && req.files.length > 0) {
+            const uploadPromises = req.files.map(async (file) => {
+                console.log(`Uploading to ImageKit: ${file.originalname}`);
+                const response = await imagekit.upload({
+                    file: file.buffer,
+                    fileName: Date.now() + "-" + file.originalname,
+                    folder: "/properties"
+                });
+                return response.url;
+            });
+            const newUrls = await Promise.all(uploadPromises);
+            // Replace existing images with new ones (or you could append if preferred)
+            imageUrls = newUrls;
+        }
+
+        // Parse fields from FormData
+        const parseNum = (val) => (val === undefined || val === null || val === '' || val === 'null') ? undefined : Number(val);
+
+        let address = req.body.address || property.address;
+        if (typeof address === 'string') {
+            try { address = JSON.parse(address); } catch (e) { address = property.address; }
+        }
+
+        let pgDetails = req.body.pgDetails || property.pgDetails;
+        if (typeof pgDetails === 'string') {
+            try { pgDetails = JSON.parse(pgDetails); } catch (e) { pgDetails = property.pgDetails; }
+        }
+
+        let amenities = req.body.amenities || property.amenities;
+        if (typeof amenities === 'string') {
+            try { amenities = JSON.parse(amenities); } catch (e) { amenities = property.amenities; }
+        }
+
+        // Update fields
+        Object.assign(property, req.body);
+        
+        // Ensure numbers are correctly updated
+        if (req.body.price) property.price = parseNum(req.body.price);
+        if (req.body.area) property.area = parseNum(req.body.area);
+        if (req.body.bedrooms) property.bedrooms = parseNum(req.body.bedrooms);
+        if (req.body.bathrooms) property.bathrooms = parseNum(req.body.bathrooms);
+        if (req.body.latitude) property.latitude = parseNum(req.body.latitude);
+        if (req.body.longitude) property.longitude = parseNum(req.body.longitude);
+        if (req.body.parking) property.parking = parseNum(req.body.parking);
+
+        property.address = address;
+        property.pgDetails = pgDetails;
+        property.amenities = Array.isArray(amenities) ? amenities : [];
+        property.images = imageUrls;
+
+        const updatedProperty = await property.save();
+        res.json(updatedProperty);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Update Property Error:', error);
+        res.status(500).json({ 
+            message: error.name === 'ValidationError' ? Object.values(error.errors).map(e => e.message).join(', ') : error.message 
+        });
     }
 };
 

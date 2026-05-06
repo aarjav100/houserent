@@ -1,14 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin } from 'lucide-react';
+import { Search, MapPin, Loader2 } from 'lucide-react';
 import PropertyCard from '../components/property/PropertyCard';
+import { propertyService } from '../services/api';
 
 const primaryColor = '#5B4FCF';
 
-const HomePage = ({ properties, onSave, savedProperties }) => {
+const HomePage = ({ onSave, savedProperties }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState({ location: '', type: 'All', price: 50000 });
+  const [properties, setProperties] = useState([]);
+  const [loading, setLoading] = useState(true);
   const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Goa', 'Noida'];
+
+  useEffect(() => {
+    fetchFeaturedProperties();
+  }, []);
+
+  const fetchFeaturedProperties = async () => {
+    setLoading(true);
+    try {
+      const data = await propertyService.getAll({ limit: 6 });
+      setProperties(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch featured properties', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = () => {
     navigate(`/browse?location=${search.location}&type=${search.type}`);
@@ -16,6 +35,7 @@ const HomePage = ({ properties, onSave, savedProperties }) => {
 
   return (
     <div className="pb-20">
+      {/* ... Hero Section remains the same ... */}
       <section className="relative pt-24 pb-32 overflow-hidden bg-gradient-to-br from-indigo-50 to-white">
         <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 tracking-tight">
@@ -55,6 +75,7 @@ const HomePage = ({ properties, onSave, savedProperties }) => {
         </div>
       </section>
 
+      {/* ... Stats Section ... */}
       <section className="bg-white py-10 border-y border-gray-100">
         <div className="max-w-7xl mx-auto px-4 flex justify-around text-center divide-x divide-gray-100">
           <div className="px-4">
@@ -81,17 +102,36 @@ const HomePage = ({ properties, onSave, savedProperties }) => {
           <button onClick={() => navigate('/browse')} className="text-[#5B4FCF] font-semibold hover:underline">View All →</button>
         </div>
         
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-          {['All', 'Apartment', 'Villa', 'PG', 'Studio', 'Office'].map(f => (
-            <button key={f} className="px-6 py-2 rounded-full border text-sm font-medium whitespace-nowrap bg-gray-50 text-gray-600 hover:bg-[#5B4FCF] hover:text-white hover:border-[#5B4FCF] transition">{f}</button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
-          {properties.slice(0,6).map(p => (
-            <PropertyCard key={p.id} property={p} onSave={onSave} isListView={false} isSaved={savedProperties.includes(p.id)} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-12 w-12 text-[#5B4FCF] animate-spin mb-4" />
+            <p className="text-gray-500 font-medium">Loading featured properties...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+            {properties.map(p => (
+              <PropertyCard 
+                key={p._id} 
+                property={{
+                  id: p._id,
+                  title: p.title,
+                  location: `${p.address.city}, ${p.address.state}`,
+                  price: p.price,
+                  images: p.images || [],
+                  image: p.image || (p.images && p.images[0]),
+                  type: p.type,
+                  listingType: p.status.toLowerCase().includes('rent') ? 'Rent' : 'Sale',
+                  bedrooms: p.bedrooms,
+                  bathrooms: p.bathrooms,
+                  sqft: p.area
+                }} 
+                onSave={onSave} 
+                isListView={false} 
+                isSaved={savedProperties.includes(p._id)} 
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

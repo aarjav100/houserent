@@ -27,24 +27,34 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    role: {
-        type: String,
-        enum: ['user', 'renter', 'owner', 'agent', 'admin'],
-        default: 'renter'
-    },
-    avatar: {
-        type: String,
-        default: ''
-    },
-    bio: {
-        type: String,
-        default: ''
-    },
-    savedProperties: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Property'
-    }]
-}, { timestamps: true });
+        role: {
+            type: String,
+            enum: ['user', 'renter', 'owner', 'pg-owner', 'agent', 'admin'],
+            default: 'renter'
+        },
+        avatar: {
+            type: String,
+            default: ''
+        },
+        bio: {
+            type: String,
+            default: ''
+        },
+        socialLinks: {
+            instagram: String,
+            whatsapp: String
+        },
+        preferences: {
+            sleepSchedule: { type: String, enum: ['early-bird', 'night-owl', 'flexible'] },
+            cleanliness: { type: Number, min: 1, max: 5 },
+            smoking: { type: Boolean, default: false },
+            pets: { type: Boolean, default: false }
+        },
+        savedProperties: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Property'
+        }]
+    }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {

@@ -1,10 +1,12 @@
-const express = require('express');
+const path = require('path');
 const dotenv = require('dotenv');
+
+// Load env vars at the very beginning
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
-
-// Load env vars
-dotenv.config();
 
 // Connect to database
 connectDB();
@@ -19,7 +21,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
-const path = require('path');
 
 // Route files
 const authRoutes = require('./routes/authRoutes');
@@ -28,6 +29,8 @@ const inquiryRoutes = require('./routes/inquiryRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -36,9 +39,10 @@ app.use('/api/inquiries', inquiryRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Static folders
-app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 
 app.get('/', (req, res) => {
   res.send('HouseHunt API is running...');

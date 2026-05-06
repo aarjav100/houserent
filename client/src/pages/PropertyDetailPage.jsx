@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2 } from 'lucide-react';
-import { propertyService, contactService } from '../services/api';
+import { propertyService, contactService, paymentService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const primaryColor = '#5B4FCF';
 
 const PropertyDetailPage = ({ onSave, savedProperties }) => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [contactInfo, setContactInfo] = useState(null);
@@ -58,6 +59,12 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
     try {
       const data = await propertyService.getById(id);
       setProperty(data);
+      
+      // Also fetch contact status
+      if (user) {
+        const contactData = await contactService.getContact(id);
+        setContactInfo(contactData);
+      }
     } catch (error) {
       console.error('Failed to fetch property details', error);
     } finally {
@@ -68,15 +75,68 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
   const handleRevealContact = async () => {
     if (!user) {
       alert("Please login to see contact details");
+      navigate('/login');
       return;
     }
+
+    // If already unlocked, just show it
+    if (contactInfo?.unlocked) return;
+
     setRevealing(true);
     try {
-      const data = await contactService.unlockContact({ propertyId: id });
-      setContactInfo(data);
+      // 1. Create Order on Backend (₹9 = 900 paise)
+      const order = await paymentService.createOrder(900);
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        name: "HouseHunt",
+        description: `Unlock contact for ${property.title}`,
+        order_id: order.id,
+        handler: async (response) => {
+          try {
+            // 3. Verify Payment
+            const verifyData = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            };
+            const verification = await paymentService.verifyPayment(verifyData);
+
+            if (verification.success) {
+              // 4. Actually Unlock on Backend
+              const unlock = await contactService.unlockContact({ 
+                propertyId: id,
+                paymentId: response.razorpay_payment_id,
+                plan: 'single',
+                amountPaid: 9
+              });
+              setContactInfo(unlock);
+              alert("Contact unlocked successfully!");
+            }
+          } catch (err) {
+            console.error("Verification failed", err);
+            alert("Payment verification failed. Please contact support.");
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone
+        },
+        theme: {
+          color: primaryColor
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+
     } catch (error) {
-      console.error('Failed to reveal contact', error);
-      alert("Could not reveal contact. Please try again.");
+      console.error('Payment initiation failed', error);
+      alert("Could not start payment. Please check your internet or try again later.");
     } finally {
       setRevealing(false);
     }
@@ -100,7 +160,16 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
       {/* Gallery */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 h-[500px]">
         <div className="md:col-span-3 rounded-2xl overflow-hidden shadow-sm relative">
-          <img src={getImageUrl(property.images[0])} alt="Main" className="w-full h-full object-cover" />
+          <img 
+            src={property.images && property.images[0] ? property.images[0] : "https://ik.imagekit.io/jain100/default-image.jpg"} 
+            alt="Main" 
+            className="w-full h-full object-cover" 
+            onLoad={() => console.log('Main image loaded:', property.images[0])}
+            onError={(e) => {
+              console.error('Main image failed:', property.images[0]);
+              e.target.src = "https://ik.imagekit.io/jain100/default-image.jpg";
+            }}
+          />
           <button onClick={() => onSave(property._id)} className="absolute top-6 right-6 p-4 bg-white/90 rounded-full shadow-lg hover:bg-white transition">
             <Heart size={24} className={isSaved ? "fill-red-500 text-red-500" : "text-gray-500"} />
           </button>
@@ -108,7 +177,14 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
         <div className="hidden md:flex flex-col gap-4 h-full">
           {property.images.slice(1,3).map((img, i) => (
             <div key={i} className="flex-1 rounded-2xl overflow-hidden shadow-sm">
-              <img src={getImageUrl(img)} alt="Thumb" className="w-full h-full object-cover" />
+              <img 
+                src={getImageUrl(img)} 
+                alt="Thumb" 
+                className="w-full h-full object-cover" 
+                onError={(e) => {
+                  e.target.src = "https://ik.imagekit.io/jain100/default-image.jpg";
+                }}
+              />
             </div>
           ))}
           {property.images.length < 2 && (
