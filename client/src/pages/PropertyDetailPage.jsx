@@ -158,37 +158,61 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Gallery */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 h-[500px]">
-        <div className="md:col-span-3 rounded-2xl overflow-hidden shadow-sm relative">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-12 h-[600px]">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="md:col-span-3 rounded-[2.5rem] overflow-hidden shadow-2xl relative group"
+        >
           <img 
             src={property.images && property.images[0] ? property.images[0] : "https://ik.imagekit.io/jain100/default-image.jpg"} 
             alt="Main" 
-            className="w-full h-full object-cover" 
-            onLoad={() => console.log('Main image loaded:', property.images[0])}
-            onError={(e) => {
-              console.error('Main image failed:', property.images[0]);
-              e.target.src = "https://ik.imagekit.io/jain100/default-image.jpg";
-            }}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
           />
-          <button onClick={() => onSave(property._id)} className="absolute top-6 right-6 p-4 bg-white/90 rounded-full shadow-lg hover:bg-white transition">
-            <Heart size={24} className={isSaved ? "fill-red-500 text-red-500" : "text-gray-500"} />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+          <button 
+            onClick={() => onSave(property._id)} 
+            className="absolute top-8 right-8 p-4 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl hover:bg-white transition-all active:scale-90"
+          >
+            <Heart size={28} className={isSaved ? "fill-red-500 text-red-500" : "text-primary/40"} />
           </button>
-        </div>
+        </motion.div>
+        
         <div className="hidden md:flex flex-col gap-4 h-full">
-          {property.images.slice(1,3).map((img, i) => (
-            <div key={i} className="flex-1 rounded-2xl overflow-hidden shadow-sm">
+          {property.images.slice(1, 3).map((img, i) => (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 * (i + 1) }}
+              className="flex-1 rounded-[2rem] overflow-hidden shadow-lg relative group cursor-pointer"
+            >
               <img 
                 src={getImageUrl(img)} 
                 alt="Thumb" 
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
                 onError={(e) => {
                   e.target.src = "https://ik.imagekit.io/jain100/default-image.jpg";
                 }}
               />
-            </div>
+              {i === 1 && property.images.length > 3 && (
+                <div className="absolute inset-0 bg-primary/60 backdrop-blur-sm flex items-center justify-center text-white font-serif text-2xl font-bold">
+                  +{property.images.length - 3}
+                </div>
+              )}
+            </motion.div>
           ))}
           {property.images.length < 2 && (
-            <div className="flex-1 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400">No more images</div>
+            <div className="flex-1 rounded-[2rem] bg-accent/5 border border-accent/10 flex flex-col items-center justify-center text-primary/30 font-bold italic">
+              <Sparkles size={24} className="mb-2 opacity-20" />
+              More photos coming soon
+            </div>
+          )}
+          {property.images.length < 3 && property.images.length >= 2 && (
+             <div className="flex-1 rounded-[2rem] bg-accent/5 border border-accent/10 flex flex-col items-center justify-center text-primary/30 font-bold italic">
+               <Sparkles size={24} className="mb-2 opacity-20" />
+               View Interior
+             </div>
           )}
         </div>
       </div>

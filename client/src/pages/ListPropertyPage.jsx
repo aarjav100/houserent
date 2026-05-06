@@ -153,8 +153,8 @@ const ListPropertyPage = ({ showToast }) => {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length + images.length > 5) {
-      showToast("Maximum 5 images allowed");
+    if (files.length + images.length > 10) {
+      showToast("Maximum 10 images allowed");
       return;
     }
 
