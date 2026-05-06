@@ -13,6 +13,7 @@
     "@imagekit/react": "^5.0.2",
     "@react-google-maps/api": "^2.20.8",
     "axios": "^1.13.6",
+    "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.577.0",
     "react": "^18.3.1",

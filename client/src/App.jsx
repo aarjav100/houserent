@@ -20,8 +20,6 @@ import DashboardPage from './pages/DashboardPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
-const primaryColor = '#5B4FCF';
-
 const App = () => {
   const [savedProperties, setSavedProperties] = useState([]);
   const [toast, setToast] = useState({ message: '', isVisible: false });
@@ -44,7 +42,7 @@ const App = () => {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50 selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="min-h-screen flex flex-col font-sans text-gray-900 bg-gray-50 selection:bg-accent/20 selection:text-primary">
           <Navbar savedCount={savedProperties.length} />
           
           <main className="flex-grow">
@@ -72,15 +70,15 @@ const App = () => {
             </Routes>
           </main>
 
-          <footer className="bg-white border-t border-gray-100 py-10 mt-auto">
-            <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-2 text-xl font-bold" style={{ color: primaryColor }}><Home size={24}/> HouseHunt</div>
-              <div className="flex gap-6 text-sm font-medium text-gray-500">
-                <a href="#" className="hover:text-[#5B4FCF]">About</a>
-                <a href="#" className="hover:text-[#5B4FCF]">Contact</a>
-                <a href="#" className="hover:text-[#5B4FCF]">Privacy Policy</a>
+          <footer className="bg-white border-t border-accent/5 py-12 mt-auto">
+            <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8">
+              <div className="flex items-center gap-2 text-2xl font-serif font-extrabold text-primary"><Home size={28} className="text-accent"/> HouseHunt</div>
+              <div className="flex gap-8 text-sm font-bold text-primary/40 uppercase tracking-widest">
+                <a href="#" className="hover:text-accent transition-colors">About</a>
+                <a href="#" className="hover:text-accent transition-colors">Contact</a>
+                <a href="#" className="hover:text-accent transition-colors">Privacy Policy</a>
               </div>
-              <div className="text-gray-400 text-sm">© 2026 HouseHunt. All rights reserved.</div>
+              <div className="text-primary/30 text-xs font-bold tracking-tighter uppercase">© 2026 HouseHunt. India's #1 Property Platform.</div>
             </div>
           </footer>
 
