@@ -96,6 +96,7 @@ exports.createProperty = async (req, res) => {
         }
 
         if (imageUrls.length === 0) {
+            console.warn('--- REJECTED: No images uploaded or ImageKit failed ---');
             return res.status(400).json({ message: 'Please provide at least one image' });
         }
 
@@ -143,13 +144,19 @@ exports.createProperty = async (req, res) => {
             await user.save();
         }
 
-        console.log('Property created in MongoDB with images:', createdProperty.images);
+        console.log('--- SUCCESS: Property created with ID:', createdProperty._id);
         res.status(201).json(createdProperty);
     } catch (error) {
-        console.error('Create Property Error:', error);
-        res.status(500).json({ 
-            message: error.name === 'ValidationError' ? Object.values(error.errors).map(e => e.message).join(', ') : error.message 
-        });
+        console.error('--- ERROR IN CREATE PROPERTY ---');
+        console.error('Error Name:', error.name);
+        console.error('Error Message:', error.message);
+        
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(val => val.message);
+            return res.status(400).json({ message: messages.join(', ') });
+        }
+
+        res.status(500).json({ message: 'Internal Server Error: ' + error.message });
     }
 };
 

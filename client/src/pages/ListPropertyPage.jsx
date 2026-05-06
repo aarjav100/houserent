@@ -264,6 +264,13 @@ const ListPropertyPage = ({ showToast }) => {
     }
 
     setLoading(true);
+
+    // Validation: Check for images
+    if (images.length === 0) {
+      showToast("Please upload at least one image");
+      setLoading(false);
+      return;
+    }
     
     // Check if payment is needed (listingCount > 0)
     if (user.listingCount > 0) {
