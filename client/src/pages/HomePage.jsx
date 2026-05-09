@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PropertyCard from '../components/property/PropertyCard';
 import { propertyService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import AdBanner from '../components/common/AdBanner';
 
 const HomePage = ({ onSave, savedProperties }) => {
   const [properties, setProperties] = useState([]);
@@ -164,6 +165,9 @@ const HomePage = ({ onSave, savedProperties }) => {
           </div>
         </motion.div>
 
+        {/* Ad Banner */}
+        <AdBanner />
+
         {/* Featured Section */}
         <div className="mt-20">
           <div className="flex justify-between items-end mb-10">
@@ -222,6 +226,9 @@ const HomePage = ({ onSave, savedProperties }) => {
             </motion.div>
           )}
         </div>
+
+        {/* Ad Banner */}
+        <AdBanner />
       </section>
       
       {/* Footer-like section to finish the look */}
