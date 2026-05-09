@@ -53,8 +53,26 @@ const userSchema = new mongoose.Schema({
         savedProperties: [{
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Property'
-        }]
+        }],
+        workplaceLocation: {
+            type: {
+                type: String,
+                enum: ['Point'],
+                default: 'Point'
+            },
+            coordinates: {
+                type: [Number], // [longitude, latitude]
+            },
+            address: { type: String, default: '' },
+            name: { type: String, default: '' }
+        },
+        preferredRadius: {
+            type: Number,
+            default: 5 // Default to 5km
+        }
     }, { timestamps: true });
+
+userSchema.index({ workplaceLocation: '2dsphere' });
 
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2, Sparkles, Star, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2, Sparkles, Star, ChevronLeft, ChevronRight, X, QrCode } from 'lucide-react';
 import { propertyService, contactService, paymentService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import UPIMethodModal from '../components/common/UPIMethodModal';
 
 const primaryColor = '#0F3D3E'; // Updated to new theme primary
 
@@ -14,7 +15,11 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
   const [loading, setLoading] = useState(true);
   const [contactInfo, setContactInfo] = useState(null);
   const [revealing, setRevealing] = useState(false);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [paymentStep, setPaymentStep] = useState('mode'); // 'mode' or 'method'
   const [activeImage, setActiveImage] = useState(0);
+  const [showUPIModal, setShowUPIModal] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const { user } = useAuth();
@@ -74,14 +79,38 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
 
   const handleRevealContact = async () => {
     if (!user) {
+      console.log("No user found, redirecting to login");
       navigate('/login');
       return;
     }
     if (contactInfo?.unlocked) return;
 
+    console.log("Initiating payment for ₹10...");
     setRevealing(true);
     try {
-      const order = await paymentService.createOrder(900);
+      const order = await paymentService.createOrder(100);
+      console.log("Order created:", order);
+      
+      // Bypass Razorpay popup if it's a mock order
+      if (order.mock) {
+        const verifyData = {
+          razorpay_order_id: order.id,
+          razorpay_payment_id: `mock_pay_${Date.now()}`,
+          razorpay_signature: 'mock_signature'
+        };
+        const verification = await paymentService.verifyPayment(verifyData);
+        if (verification.success) {
+          const unlock = await contactService.unlockContact({ 
+            propertyId: id,
+            paymentId: verifyData.razorpay_payment_id,
+            plan: 'single',
+            amountPaid: 10
+          });
+          setContactInfo(unlock);
+          setRevealing(false);
+          return;
+        }
+      }
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: order.amount,
@@ -102,7 +131,7 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
                 propertyId: id,
                 paymentId: response.razorpay_payment_id,
                 plan: 'single',
-                amountPaid: 9
+                amountPaid: 10
               });
               setContactInfo(unlock);
             }
@@ -119,7 +148,58 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
       console.error('Payment initiation failed', error);
     } finally {
       setRevealing(false);
+      // We don't close showBillingModal here because we might want to stay in UPI modal
     }
+  };
+
+  const handleUPISelect = async () => {
+    setRevealing(true);
+    try {
+      const order = await paymentService.createOrder(1000);
+      setCurrentOrderId(order.id);
+      setShowUPIModal(true);
+      setShowBillingModal(false);
+    } catch (error) {
+      console.error('Failed to create order for UPI', error);
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const handleUPISuccess = async (paymentId) => {
+    setShowUPIModal(false);
+    setRevealing(true);
+    try {
+      const verifyData = {
+        razorpay_order_id: currentOrderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: 'mock_signature'
+      };
+      const verification = await paymentService.verifyPayment(verifyData);
+      if (verification.success) {
+        const unlock = await contactService.unlockContact({ 
+          propertyId: id,
+          paymentId: paymentId,
+          plan: 'single',
+          amountPaid: 10
+        });
+        setContactInfo(unlock);
+      }
+    } catch (error) {
+      console.error("UPI verification failed", error);
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const handleOpenBilling = (e) => {
+    console.log("Unlock clicked!");
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    setPaymentStep('mode');
+    setShowBillingModal(true);
   };
 
   if (loading) {
@@ -199,7 +279,7 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
         </motion.div>
         
         <div className="hidden lg:flex flex-col gap-6 h-full">
-          {images.slice(1, 4).map((img, i) => (
+          {images.slice(1, property.premiumGallery ? 15 : 3).map((img, i) => (
             <motion.div 
               key={i}
               initial={{ opacity: 0, x: 30 }}
@@ -213,7 +293,7 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
                 alt="Thumb" 
                 className="w-full h-full object-cover" 
               />
-              {i === 2 && images.length > 4 && (
+              {i === 2 && images.length > 4 && property.premiumGallery && (
                 <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                   <span className="text-3xl font-serif font-bold">+{images.length - 4}</span>
                   <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Photos</span>
@@ -221,7 +301,22 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
               )}
             </motion.div>
           ))}
-          {images.length < 2 && (
+          {!property.premiumGallery && (
+             <div 
+              className="flex-1 min-h-[200px] rounded-[2.5rem] bg-accent/5 border border-dashed border-accent/30 flex flex-col items-center justify-center text-primary/40 text-center p-6 group/unlock hover:bg-accent/10 transition-all cursor-pointer relative z-30" 
+              onClick={handleOpenBilling}
+             >
+                <Sparkles size={32} className="mb-3 text-accent animate-pulse" />
+                <p className="text-xs font-serif italic mb-3">More photos available</p>
+                <button 
+                  className="px-5 py-2.5 bg-accent text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-accent/20 group-hover/unlock:scale-110 transition-transform"
+                >
+                  Unlock for ₹10
+                </button>
+                <span className="absolute bottom-4 text-[8px] font-bold opacity-30 uppercase tracking-tighter">Test Mode Only</span>
+             </div>
+          )}
+          {property.premiumGallery && images.length < 2 && (
              <div className="flex-1 rounded-[2.5rem] bg-accent/5 border border-dashed border-accent/20 flex flex-col items-center justify-center text-primary/20 text-center p-6">
                 <Star size={32} className="mb-3 opacity-20" />
                 <p className="text-xs font-serif italic">More photos <br/> available on request</p>
@@ -333,6 +428,130 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
           </motion.div>
         </div>
       </div>
+      <AnimatePresence>
+        {showBillingModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBillingModal(false)}
+              className="absolute inset-0 bg-primary/40 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden"
+            >
+              <div className="p-8 text-left">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-2xl font-serif font-bold text-primary">
+                      {paymentStep === 'mode' ? 'Billing Mode' : 'Payment Method'}
+                    </h3>
+                    <p className="text-primary/50 text-sm">
+                      {paymentStep === 'mode' ? 'Select payment environment' : 'Choose your test payment method'}
+                    </p>
+                  </div>
+                  <button onClick={() => setShowBillingModal(false)} className="p-2 hover:bg-accent/5 rounded-full transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {paymentStep === 'mode' ? (
+                    <motion.div 
+                      key="step1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="space-y-4"
+                    >
+                      <button 
+                        onClick={() => setPaymentStep('method')}
+                        className="w-full p-6 bg-accent/5 border-2 border-accent rounded-3xl flex items-center justify-between group hover:bg-accent hover:text-white transition-all duration-300"
+                      >
+                        <div className="text-left">
+                          <span className="block text-xs font-black uppercase tracking-widest opacity-60 mb-1">Recommended</span>
+                          <span className="block text-lg font-bold">Test Mode (Mock)</span>
+                        </div>
+                        <div className="w-12 h-12 bg-accent text-white rounded-2xl flex items-center justify-center group-hover:bg-white group-hover:text-accent transition-colors">
+                           <Sparkles />
+                        </div>
+                      </button>
+
+                      <div className="p-6 bg-primary/5 border border-primary/10 rounded-3xl flex items-center justify-between opacity-50 grayscale cursor-not-allowed">
+                        <div className="text-left">
+                          <span className="block text-xs font-black uppercase tracking-widest opacity-40 mb-1">Production</span>
+                          <span className="block text-lg font-bold">Real Razorpay</span>
+                        </div>
+                        <div className="text-xs font-bold bg-primary/10 px-2 py-1 rounded">Unavailable</div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="step2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-3"
+                    >
+                      <button 
+                        onClick={handleUPISelect}
+                        disabled={revealing}
+                        className="w-full p-5 bg-white border border-accent/20 rounded-2xl flex items-center gap-4 hover:border-accent hover:bg-accent/5 transition-all text-left"
+                      >
+                        <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center text-accent">
+                          <QrCode size={20} />
+                        </div>
+                        <div>
+                          <span className="block font-bold">UPI / GPay / PhonePe</span>
+                          <span className="block text-[10px] text-primary/40 uppercase tracking-widest">QR, Deep Link, VPA</span>
+                        </div>
+                      </button>
+
+                      <button 
+                        onClick={handleRevealContact}
+                        disabled={revealing}
+                        className="w-full p-5 bg-white border border-accent/20 rounded-2xl flex items-center gap-4 hover:border-accent hover:bg-accent/5 transition-all text-left"
+                      >
+                        <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center text-accent">
+                          <MapPin size={20} />
+                        </div>
+                        <div>
+                          <span className="block font-bold">Credit / Debit Card</span>
+                          <span className="block text-[10px] text-primary/40 uppercase tracking-widest">Visa, Mastercard, RuPay</span>
+                        </div>
+                      </button>
+
+                      <button 
+                        onClick={() => setPaymentStep('mode')}
+                        className="w-full py-2 text-primary/40 text-[10px] font-black uppercase tracking-widest hover:text-accent transition-colors"
+                      >
+                        ← Back to Mode Selection
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="mt-8 pt-6 border-t border-accent/10 flex justify-between items-center">
+                  <span className="text-primary/60 font-medium text-sm">Amount to pay:</span>
+                  <span className="text-2xl font-serif font-black text-primary">₹1</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <UPIMethodModal 
+        isOpen={showUPIModal}
+        onClose={() => setShowUPIModal(false)}
+        amount={1}
+        orderId={currentOrderId}
+        onPaymentSuccess={handleUPISuccess}
+      />
     </motion.div>
   );
 };

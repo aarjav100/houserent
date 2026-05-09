@@ -23,9 +23,51 @@ const uploadToImageKit = async (file) => {
 // @access  Public
 exports.getProperties = async (req, res) => {
     try {
-        const { city, type, minPrice, maxPrice, bedrooms, bathrooms, status } = req.query;
+        const { city, type, minPrice, maxPrice, bedrooms, bathrooms, status, lat, lng, radius } = req.query;
         let query = {};
 
+        // Geospatial Proximity Search
+        if (lat && lng) {
+            const latitude = Number(lat);
+            const longitude = Number(lng);
+            const maxDistance = (Number(radius) || 5) * 1000; // Default 5km in meters
+
+            // Use aggregation for $geoNear to get distance
+            const pipeline = [
+                {
+                    $geoNear: {
+                        near: { type: "Point", coordinates: [longitude, latitude] },
+                        distanceField: "distanceFromWorkplace",
+                        maxDistance: maxDistance,
+                        spherical: true,
+                        key: "location"
+                    }
+                }
+            ];
+
+            // Add other filters to the pipeline
+            let match = {};
+            if (city) match['address.city'] = { $regex: city, $options: 'i' };
+            if (type) match.type = type;
+            if (status) match.status = status;
+            if (bedrooms && !isNaN(Number(bedrooms))) match.bedrooms = { $gte: Number(bedrooms) };
+            if (bathrooms && !isNaN(Number(bathrooms))) match.bathrooms = { $gte: Number(bathrooms) };
+            if (minPrice || maxPrice) {
+                match.price = {};
+                if (minPrice && !isNaN(Number(minPrice))) match.price.$gte = Number(minPrice);
+                if (maxPrice && !isNaN(Number(maxPrice))) match.price.$lte = Number(maxPrice);
+                if (Object.keys(match.price).length === 0) delete match.price;
+            }
+
+            if (Object.keys(match).length > 0) {
+                pipeline.push({ $match: match });
+            }
+
+            const properties = await Property.aggregate(pipeline);
+            return res.json(properties);
+        }
+
+        // Standard Search
         if (city) query['address.city'] = { $regex: city, $options: 'i' };
         if (type) query.type = type;
         if (status) query.status = status;
@@ -36,8 +78,6 @@ exports.getProperties = async (req, res) => {
             query.price = {};
             if (minPrice && !isNaN(Number(minPrice))) query.price.$gte = Number(minPrice);
             if (maxPrice && !isNaN(Number(maxPrice))) query.price.$lte = Number(maxPrice);
-            
-            // Clean up empty price query
             if (Object.keys(query.price).length === 0) delete query.price;
         }
 
@@ -57,9 +97,8 @@ exports.getPropertyById = async (req, res) => {
         const property = await Property.findById(req.params.id).populate('owner', 'name email bio avatar');
         
         if (property) {
-            // Update views
-            property.views += 1;
-            await property.save();
+            // Update views without triggering full validation (safer for old data)
+            await Property.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
             res.json(property);
         } else {
             res.status(404).json({ message: 'Property not found' });
@@ -118,19 +157,29 @@ exports.createProperty = async (req, res) => {
             try { amenities = JSON.parse(amenities); } catch (e) { amenities = amenities ? [amenities] : []; }
         }
 
+        const lat = parseNum(req.body.latitude);
+        const lng = parseNum(req.body.longitude);
+
         const propertyData = {
             ...req.body,
             price: parseNum(req.body.price),
             area: parseNum(req.body.area),
             bedrooms: parseNum(req.body.bedrooms),
             bathrooms: parseNum(req.body.bathrooms),
-            latitude: parseNum(req.body.latitude),
-            longitude: parseNum(req.body.longitude),
+            latitude: lat,
+            longitude: lng,
+            location: {
+                type: 'Point',
+                coordinates: [lng, lat]
+            },
             parking: parseNum(req.body.parking),
             address,
             pgDetails,
+            messDetails: typeof req.body.messDetails === 'string' ? JSON.parse(req.body.messDetails) : req.body.messDetails,
+            restaurantDetails: typeof req.body.restaurantDetails === 'string' ? JSON.parse(req.body.restaurantDetails) : req.body.restaurantDetails,
             amenities: Array.isArray(amenities) ? amenities : [],
             images: imageUrls,
+            premiumGallery: req.body.premiumGallery === 'true' || req.body.premiumGallery === true,
             owner: req.user._id
         };
 
@@ -229,6 +278,9 @@ exports.updateProperty = async (req, res) => {
         property.pgDetails = pgDetails;
         property.amenities = Array.isArray(amenities) ? amenities : [];
         property.images = imageUrls;
+        if (req.body.premiumGallery !== undefined) {
+            property.premiumGallery = req.body.premiumGallery === 'true' || req.body.premiumGallery === true;
+        }
 
         const updatedProperty = await property.save();
         res.json(updatedProperty);

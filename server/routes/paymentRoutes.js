@@ -16,14 +16,22 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_ID !== 'your_razorpa
   console.warn('⚠️ Razorpay credentials are missing or using placeholders. Payment features will be disabled.');
 }
 
-// @desc    Create a Razorpay order
-// @route   POST /api/payment/create-order
+// @desc    Create a Razorpay order (or Mock Order)
 router.post('/create-order', protect, async (req, res) => {
+  const { amount } = req.body; // Amount in paise
+
   if (!razorpay) {
-    return res.status(500).json({ message: 'Razorpay is not configured' });
+    console.log('--- MOCK PAYMENT MODE ACTIVE ---');
+    return res.json({
+      id: `mock_order_${Date.now()}`,
+      amount: amount || 1000,
+      currency: 'INR',
+      status: 'created',
+      mock: true
+    });
   }
+
   try {
-    const { amount } = req.body; // Amount in paise (e.g. 900 for ₹9)
     const options = {
       amount: amount || 1000, 
       currency: 'INR',
@@ -39,12 +47,13 @@ router.post('/create-order', protect, async (req, res) => {
 });
 
 // @desc    Verify Razorpay payment
-// @route   POST /api/payment/verify
 router.post('/verify', protect, async (req, res) => {
-  if (!razorpay) {
-    return res.status(500).json({ message: 'Razorpay is not configured' });
-  }
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+  if (!razorpay || razorpay_order_id?.startsWith('mock_')) {
+    console.log('--- MOCK VERIFICATION SUCCESS ---');
+    return res.json({ message: "Mock payment verified successfully", success: true });
+  }
 
   const sign = razorpay_order_id + "|" + razorpay_payment_id;
   const expectedSign = crypto
@@ -53,7 +62,6 @@ router.post('/verify', protect, async (req, res) => {
     .digest("hex");
 
   if (razorpay_signature === expectedSign) {
-    // Payment verified
     res.json({ message: "Payment verified successfully", success: true });
   } else {
     res.status(400).json({ message: "Invalid signature", success: false });

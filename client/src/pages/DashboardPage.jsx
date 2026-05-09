@@ -4,9 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import PropertyCard from '../components/property/PropertyCard';
 import { useAuth } from '../context/AuthContext';
 import { propertyService } from '../services/api';
+import WorkplaceSettings from '../components/profile/WorkplaceSettings';
 
 const DashboardPage = ({ onSave, savedProperties, showToast }) => {
-  const [tab, setTab] = useState('My Listings');
+  const { user, logout } = useAuth();
+  const isOwner = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'agent' || user?.role === 'pg-owner';
+  const [tab, setTab] = useState(isOwner ? 'My Listings' : 'Saved Properties');
   const [myProperties, setMyProperties] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +20,6 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
   
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -74,19 +76,26 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-extrabold">Welcome, {user.name}</h1>
-        <button onClick={() => navigate('/list-property')} className="bg-[#5B4FCF] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#4a3fb3] transition shadow-lg shadow-indigo-100">
-          <Plus size={20}/> List Property
-        </button>
+        {isOwner && (
+          <button onClick={() => navigate('/list-property')} className="bg-[#5B4FCF] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-[#4a3fb3] transition shadow-lg shadow-indigo-100">
+            <Plus size={20}/> List Property
+          </button>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between"><div className="text-gray-500 font-medium">My Listings</div><div className="text-3xl font-bold text-[#5B4FCF]">{myProperties.length}</div></div>
+        {isOwner && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+            <div className="text-gray-500 font-medium">My Listings</div>
+            <div className="text-3xl font-bold text-[#5B4FCF]">{myProperties.length}</div>
+          </div>
+        )}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between"><div className="text-gray-500 font-medium">Saved Properties</div><div className="text-3xl font-bold text-[#5B4FCF]">{savedProperties.length}</div></div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between"><div className="text-gray-500 font-medium">Account Type</div><div className="text-xl font-bold text-[#5B4FCF] capitalize">{user.role}</div></div>
       </div>
 
       <div className="flex gap-8 border-b border-gray-200 mb-8">
-        {['My Listings', 'Saved Properties', 'Profile'].map(t => (
+        {(isOwner ? ['My Listings', 'Saved Properties', 'Workplace', 'Profile'] : ['Saved Properties', 'Workplace', 'Profile']).map(t => (
           <button key={t} onClick={()=>setTab(t)} className={`pb-4 px-2 font-bold transition ${tab===t ? 'border-b-2 border-[#5B4FCF] text-[#5B4FCF]' : 'text-gray-500 hover:text-gray-800'}`}>{t}</button>
         ))}
       </div>
@@ -128,6 +137,19 @@ const DashboardPage = ({ onSave, savedProperties, showToast }) => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {tab === 'Workplace' && (
+        <div className="max-w-4xl">
+          <WorkplaceSettings 
+            user={user} 
+            onUpdate={(updated) => {
+              // Usually the AuthContext handles this, but we can force a local update or refresh
+              window.location.reload(); 
+            }} 
+            showToast={showToast} 
+          />
         </div>
       )}
 

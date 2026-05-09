@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, MapPin, Bed, Bath, Square, ChevronRight } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Square, ChevronRight, Navigation } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const PropertyCard = ({ property, isListView, onSave, isSaved }) => {
@@ -38,8 +38,15 @@ const PropertyCard = ({ property, isListView, onSave, isSaved }) => {
       </div>
 
       <div className={`p-6 ${isListView ? 'w-2/3 flex flex-col justify-center' : ''}`}>
-        <div className="flex items-center gap-1.5 text-accent font-bold text-xs mb-3 uppercase tracking-widest">
-          <MapPin size={14}/> {property.location}
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <div className="flex items-center gap-1.5 text-accent font-bold text-[10px] uppercase tracking-widest">
+            <MapPin size={14}/> {property.location}
+          </div>
+          {property.distanceFromWorkplace && (
+            <div className="flex items-center gap-1.5 text-green-600 font-bold text-[10px] uppercase tracking-widest bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+              <Navigation size={12}/> {property.distanceFromWorkplace} km from office
+            </div>
+          )}
         </div>
         
         <h3 className="text-xl font-serif font-extrabold text-primary mb-2 line-clamp-1 group-hover:text-accent transition-colors">

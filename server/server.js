@@ -31,6 +31,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -41,6 +42,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/users', userRoutes);
 
 // Static folders
 

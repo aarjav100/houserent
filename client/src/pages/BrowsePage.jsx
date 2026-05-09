@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Grid, List as ListIcon, Loader2 } from 'lucide-react';
 import PropertyCard from '../components/property/PropertyCard';
 import { propertyService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { Navigation, Sparkles } from 'lucide-react';
 
 const BrowsePage = ({ onSave, savedProperties }) => {
   const [view, setView] = useState('grid');
@@ -15,11 +17,14 @@ const BrowsePage = ({ onSave, savedProperties }) => {
     const baseUrl = import.meta.env.VITE_API_URL.replace('/api', '');
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
+  const { user } = useAuth();
   const [filters, setFilters] = useState({
     type: '',
     city: '',
     minPrice: '',
-    maxPrice: ''
+    maxPrice: '',
+    nearWorkplace: false,
+    radius: user?.preferredRadius || 5
   });
 
   useEffect(() => {
@@ -29,7 +34,16 @@ const BrowsePage = ({ onSave, savedProperties }) => {
   const fetchProperties = async () => {
     setLoading(true);
     try {
-      const data = await propertyService.getAll(filters);
+      let queryParams = { ...filters };
+      
+      // If Near Workplace is active, inject user coordinates
+      if (filters.nearWorkplace && user?.workplaceLocation?.coordinates) {
+        queryParams.lng = user.workplaceLocation.coordinates[0];
+        queryParams.lat = user.workplaceLocation.coordinates[1];
+        queryParams.radius = filters.radius;
+      }
+
+      const data = await propertyService.getAll(queryParams);
       setProperties(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch properties', error);
@@ -89,6 +103,50 @@ const BrowsePage = ({ onSave, savedProperties }) => {
             />
           </div>
         </div>
+
+        {/* Workplace Filter */}
+        <div className="pt-6 border-t border-gray-100">
+           <div className={`p-4 rounded-2xl border-2 transition-all ${filters.nearWorkplace ? 'bg-accent/5 border-accent' : 'bg-white border-gray-100 opacity-60'}`}>
+              <div className="flex items-center justify-between mb-3">
+                 <div className="flex items-center gap-2">
+                    <Navigation size={16} className={filters.nearWorkplace ? 'text-accent' : 'text-gray-400'} />
+                    <span className="text-sm font-bold">Near Office</span>
+                 </div>
+                 <input 
+                    type="checkbox" 
+                    checked={filters.nearWorkplace}
+                    onChange={(e) => {
+                       if (!user?.workplaceLocation?.coordinates) {
+                          alert("Please set your workplace location in the Dashboard first!");
+                          return;
+                       }
+                       setFilters({...filters, nearWorkplace: e.target.checked});
+                    }}
+                    className="w-4 h-4 accent-accent"
+                 />
+              </div>
+              
+              {filters.nearWorkplace && (
+                 <div className="animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex justify-between text-[10px] font-bold text-primary/40 uppercase mb-2">
+                       <span>Radius</span>
+                       <span>{filters.radius}km</span>
+                    </div>
+                    <input 
+                       type="range" 
+                       min="1" 
+                       max="20" 
+                       value={filters.radius}
+                       onChange={(e) => setFilters({...filters, radius: parseInt(e.target.value)})}
+                       className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-accent"
+                    />
+                 </div>
+              )}
+              {!user?.workplaceLocation?.coordinates && (
+                <p className="text-[10px] text-gray-400 italic mt-2">Set workplace in profile to use this</p>
+              )}
+           </div>
+        </div>
       </div>
 
       {/* Results */}
@@ -132,7 +190,8 @@ const BrowsePage = ({ onSave, savedProperties }) => {
                     listingType: p.status.toLowerCase().includes('rent') ? 'Rent' : 'Sale',
                     bedrooms: p.bedrooms,
                     bathrooms: p.bathrooms,
-                    sqft: p.area
+                    sqft: p.area,
+                    distanceFromWorkplace: p.distanceFromWorkplace ? (p.distanceFromWorkplace / 1000).toFixed(1) : null
                   }} 
                   onSave={onSave} 
                   isListView={view==='list'} 

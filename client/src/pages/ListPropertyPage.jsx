@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
+import { Loader2, ArrowLeft, ArrowRight, Check, Upload, X, Sparkles } from 'lucide-react';
 import { propertyService, paymentService } from '../services/api';
+import UPIMethodModal from '../components/common/UPIMethodModal';
 import { useAuth } from '../context/AuthContext';
 
 const ListPropertyPage = ({ showToast }) => {
@@ -11,14 +12,25 @@ const ListPropertyPage = ({ showToast }) => {
   const [previews, setPreviews] = useState([]); // Store preview URLs
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const navigate = useNavigate();
+  const [premiumGallery, setPremiumGallery] = useState(false);
+  const [showUPIModal, setShowUPIModal] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
+  const [totalAmountRupees, setTotalAmountRupees] = useState(0);
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && user.role === 'renter') {
+      showToast("Access denied: Only owners can list properties.");
+      navigate('/dashboard');
+    }
+  }, [user, navigate, showToast]);
 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    type: 'Apartment',
-    status: 'For Rent',
+    type: 'apartment',
+    status: 'for-rent',
     price: '',
     area: '',
     bedrooms: '',
@@ -31,7 +43,21 @@ const ListPropertyPage = ({ showToast }) => {
     },
     latitude: null,
     longitude: null,
-    amenities: []
+    amenities: [],
+    pgDetails: {
+      genderAllowed: 'none',
+      sharingType: 'none',
+      foodIncluded: false
+    },
+    messDetails: {
+      mealPlans: [],
+      pureVeg: false,
+      deliveryAvailable: false
+    },
+    restaurantDetails: {
+      cuisines: [],
+      averagePriceForTwo: ''
+    }
   });
 
   const mapRef = useRef(null);
@@ -153,8 +179,9 @@ const ListPropertyPage = ({ showToast }) => {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length + images.length > 10) {
-      showToast("Maximum 10 images allowed");
+    const maxPhotos = premiumGallery ? 15 : 3;
+    if (files.length + images.length > maxPhotos) {
+      showToast(premiumGallery ? "Maximum 15 images allowed" : "Standard listing allows only 3 images. Upgrade to Premium Gallery for more!");
       return;
     }
 
@@ -178,45 +205,38 @@ const ListPropertyPage = ({ showToast }) => {
 
   const handlePayment = async () => {
     try {
-      const order = await paymentService.createOrder();
-      
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'your_razorpay_key_id',
-        amount: order.amount,
-        currency: order.currency,
-        name: "HouseHunt",
-        description: "Listing Fee for Property",
-        order_id: order.id,
-        handler: async (response) => {
-          try {
-            await paymentService.verifyPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            // Proceed to final submission
-            await finalSubmit();
-          } catch (err) {
-            showToast("Payment verification failed");
-            setLoading(false);
-          }
-        },
-        prefill: {
-          name: user.name,
-          email: user.email,
-          contact: user.phone
-        },
-        theme: { color: "#5B4FCF" },
-        modal: {
-          ondismiss: () => setLoading(false)
-        }
-      };
+      const listingFee = user.listingCount > 0 ? 100 : 0; // ₹1 in paise
+      const galleryFee = premiumGallery ? 1500 : 0; // ₹15 in paise
+      const totalAmount = listingFee + galleryFee;
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      if (totalAmount === 0) {
+        await finalSubmit();
+        return;
+      }
+
+      const order = await paymentService.createOrder(totalAmount);
+      setCurrentOrderId(order.id);
+      setTotalAmountRupees(totalAmount / 100);
+      setShowUPIModal(true);
     } catch (error) {
       console.error('Payment Error:', error);
       showToast("Failed to initiate payment");
+      setLoading(false);
+    }
+  };
+
+  const handleUPISuccess = async (paymentId) => {
+    setShowUPIModal(false);
+    setLoading(true);
+    try {
+      await paymentService.verifyPayment({
+        razorpay_order_id: currentOrderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: 'mock_signature',
+      });
+      await finalSubmit();
+    } catch (err) {
+      showToast("Payment verification failed");
       setLoading(false);
     }
   };
@@ -240,6 +260,10 @@ const ListPropertyPage = ({ showToast }) => {
       // Append objects as JSON strings
       data.append('address', JSON.stringify(formData.address));
       data.append('amenities', JSON.stringify(formData.amenities));
+      data.append('pgDetails', JSON.stringify(formData.pgDetails));
+      data.append('messDetails', JSON.stringify(formData.messDetails));
+      data.append('restaurantDetails', JSON.stringify(formData.restaurantDetails));
+      data.append('premiumGallery', premiumGallery);
       
       // Append images
       images.forEach(file => {
@@ -272,8 +296,11 @@ const ListPropertyPage = ({ showToast }) => {
       return;
     }
     
-    // Check if payment is needed (listingCount > 0)
-    if (user.listingCount > 0) {
+    // Check if payment is needed
+    const listingFee = user.listingCount > 0 ? 1 : 0;
+    const galleryFee = premiumGallery ? 15 : 0;
+    
+    if (listingFee > 0 || galleryFee > 0) {
       await handlePayment();
     } else {
       await finalSubmit();
@@ -292,7 +319,7 @@ const ListPropertyPage = ({ showToast }) => {
           </div>
         ) : (
           <div className="inline-block px-4 py-2 bg-amber-50 text-amber-700 rounded-full text-sm font-bold border border-amber-100">
-            💰 Listing Fee: ₹10 (Subsequent Listing)
+            💰 Listing Fee: ₹1 (Subsequent Listing)
           </div>
         )}
 
@@ -321,29 +348,85 @@ const ListPropertyPage = ({ showToast }) => {
                   <input name="title" type="text" value={formData.title} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all" placeholder="e.g. Modern 3BHK Apartment with Sea View" required/>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Property Type</label>
+                  <label className="block text-sm font-semibold mb-2">Listing Type</label>
                   <select name="type" value={formData.type} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all">
                     <option value="apartment">Apartment</option>
+                    <option value="flat">Flat / Flatmate</option>
+                    <option value="pg">PG / Hostel</option>
+                    <option value="mess">Mess / Tiffin Service</option>
+                    <option value="restaurant">Restaurant / Cafe</option>
+                    <option value="house">Independent House</option>
                     <option value="villa">Villa</option>
-                    <option value="house">House</option>
-                    <option value="studio">Studio</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2">Listing Status</label>
                   <select name="status" value={formData.status} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all">
-                    <option value="For Rent">For Rent</option>
-                    <option value="For Sale">For Sale</option>
+                    <option value="for-rent">Available / For Rent</option>
+                    <option value="for-sale">For Sale</option>
                   </select>
                 </div>
+
+                {/* Price Field - Shared by all */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Price (₹)</label>
-                  <input name="price" type="number" value={formData.price} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all" placeholder="e.g. 45000" required/>
+                  <label className="block text-sm font-semibold mb-2">
+                    {formData.type === 'mess' ? 'Starting Price (₹ / meal or month)' : 'Price (₹)'}
+                  </label>
+                  <input name="price" type="number" value={formData.price} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all" placeholder="e.g. 15000" required/>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2">Area (sqft)</label>
-                  <input name="area" type="number" value={formData.area} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all" placeholder="e.g. 1200" required/>
-                </div>
+
+                {/* Area Field - Only for Apartments/Flats/Houses */}
+                {['apartment', 'flat', 'house', 'villa'].includes(formData.type) && (
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Area (sqft)</label>
+                    <input name="area" type="number" value={formData.area} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF] transition-all" placeholder="e.g. 1200" required/>
+                  </div>
+                )}
+
+                {/* PG Specific Fields */}
+                {formData.type === 'pg' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Gender Preference</label>
+                      <select name="pgDetails.genderAllowed" value={formData.pgDetails.genderAllowed} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF]">
+                        <option value="boys">Boys Only</option>
+                        <option value="girls">Girls Only</option>
+                        <option value="co-ed">Co-Ed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Sharing Type</label>
+                      <select name="pgDetails.sharingType" value={formData.pgDetails.sharingType} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF]">
+                        <option value="single">Single Room</option>
+                        <option value="double">Double Sharing</option>
+                        <option value="triple">Triple Sharing</option>
+                        <option value="four-plus">4+ Sharing</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* Mess Specific Fields */}
+                {formData.type === 'mess' && (
+                  <>
+                    <div className="flex items-center gap-2 p-4">
+                      <input type="checkbox" checked={formData.messDetails.pureVeg} onChange={(e) => setFormData({...formData, messDetails: {...formData.messDetails, pureVeg: e.target.checked}})} className="w-5 h-5 accent-green-600" />
+                      <label className="text-sm font-semibold">Pure Veg Service</label>
+                    </div>
+                    <div className="flex items-center gap-2 p-4">
+                      <input type="checkbox" checked={formData.messDetails.deliveryAvailable} onChange={(e) => setFormData({...formData, messDetails: {...formData.messDetails, deliveryAvailable: e.target.checked}})} className="w-5 h-5 accent-[#5B4FCF]" />
+                      <label className="text-sm font-semibold">Delivery Available</label>
+                    </div>
+                  </>
+                )}
+
+                {/* Restaurant Specific Fields */}
+                {formData.type === 'restaurant' && (
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Avg Price for Two (₹)</label>
+                    <input name="restaurantDetails.averagePriceForTwo" type="number" value={formData.restaurantDetails.averagePriceForTwo} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-[#5B4FCF]" placeholder="e.g. 500" />
+                  </div>
+                )}
               </div>
               <div className="flex justify-end pt-8">
                 <button type="button" onClick={()=>setStep(2)} className="px-10 py-4 bg-[#5B4FCF] text-white rounded-2xl font-bold flex items-center gap-2 hover:bg-[#4a3fb3] transition shadow-lg shadow-indigo-100">
@@ -452,6 +535,32 @@ const ListPropertyPage = ({ showToast }) => {
                 ))}
               </div>
 
+              {/* Premium Gallery Upgrade UI */}
+              <div className={`p-6 rounded-[2rem] border-2 transition-all mb-8 ${premiumGallery ? 'bg-indigo-50 border-[#5B4FCF]' : 'bg-white border-gray-100'}`}>
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-2xl ${premiumGallery ? 'bg-[#5B4FCF] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    <Sparkles size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="font-bold text-lg">Premium Gallery Upgrade</h3>
+                      <span className="text-[#5B4FCF] font-black">₹15</span>
+                    </div>
+                    <p className="text-gray-500 text-sm mb-4 leading-relaxed">
+                      Showcase your property with up to 15 high-quality photos instead of just 3. 
+                      Paid listings with more photos get 2x more inquiries.
+                    </p>
+                    <button 
+                      type="button" 
+                      onClick={() => setPremiumGallery(!premiumGallery)}
+                      className={`px-6 py-2 rounded-xl font-bold transition-all ${premiumGallery ? 'bg-[#5B4FCF] text-white shadow-lg shadow-indigo-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                      {premiumGallery ? 'Upgrade Selected' : 'Add Upgrade'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {previews.map((img, idx) => (
                   <div key={idx} className="relative group aspect-square">
@@ -493,7 +602,9 @@ const ListPropertyPage = ({ showToast }) => {
                     <div className="text-[#5B4FCF] font-bold text-lg mb-1">
                       {images.length > 0 ? `${images.length} images selected` : 'Upload Property Photos'}
                     </div>
-                    <div className="text-sm text-gray-500">Click to select images from your device (Max 5)</div>
+                    <div className="text-sm text-gray-500">
+                      {premiumGallery ? 'Max 15 images' : 'Max 3 images (Upgrade for more)'}
+                    </div>
                  </div>
               </div>
 
@@ -513,6 +624,14 @@ const ListPropertyPage = ({ showToast }) => {
           )}
         </form>
       </div>
+
+      <UPIMethodModal 
+        isOpen={showUPIModal}
+        onClose={() => { setShowUPIModal(false); setLoading(false); }}
+        amount={totalAmountRupees}
+        orderId={currentOrderId}
+        onPaymentSuccess={handleUPISuccess}
+      />
     </div>
   );
 };

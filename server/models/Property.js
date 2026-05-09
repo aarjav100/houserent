@@ -12,48 +12,51 @@ const propertySchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['apartment', 'house', 'villa', 'condo', 'studio', 'penthouse', 'townhouse', 'pg', 'hotel', 'hostel'],
+        enum: ['apartment', 'house', 'villa', 'condo', 'studio', 'penthouse', 'townhouse', 'pg', 'flat', 'mess', 'restaurant', 'hotel', 'hostel'],
         required: [true, 'Please select a property type']
     },
     status: {
         type: String,
-        enum: ['for-rent', 'for-sale', 'rented', 'sold'],
+        enum: ['for-rent', 'for-sale', 'rented', 'sold', 'active', 'closed'],
         default: 'for-rent'
     },
     price: {
         type: Number,
         required: [true, 'Please add a price']
     },
+    // Geospatial Location
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number], // [longitude, latitude]
+        }
+    },
     latitude: {
         type: Number,
-        required: [true, 'Please pin your location on the map'],
-        min: [8.0, 'Latitude must be within India (min 8.0)'],
-        max: [38.0, 'Latitude must be within India (max 38.0)']
     },
     longitude: {
         type: Number,
-        required: [true, 'Please pin your location on the map'],
-        min: [68.0, 'Longitude must be within India (min 68.0)'],
-        max: [98.0, 'Longitude must be within India (max 98.0)']
     },
     priceType: {
         type: String,
-        enum: ['month', 'year', 'total'],
+        enum: ['month', 'year', 'total', 'meal'],
         default: 'month'
     },
     area: {
         type: Number,
-        required: [true, 'Please add area in sqft']
+        required: function() { return this.type === 'flat' || this.type === 'apartment'; }
     },
     bedrooms: {
         type: Number,
-        required: true,
-        default: 1
+        default: 0
     },
     bathrooms: {
         type: Number,
-        required: true,
-        default: 1
+        default: 0
     },
     parking: {
         type: Number,
@@ -61,15 +64,16 @@ const propertySchema = new mongoose.Schema({
     },
     furnished: {
         type: String,
-        enum: ['furnished', 'semi-furnished', 'unfurnished'],
-        default: 'unfurnished'
+        enum: ['furnished', 'semi-furnished', 'unfurnished', 'none'],
+        default: 'none'
     },
     address: {
         street: { type: String, default: '' },
         city: { type: String, required: [true, 'Please add a city'] },
         state: { type: String, required: [true, 'Please add a state'] },
         zipCode: { type: String, default: '' },
-        country: { type: String, default: 'India' }
+        country: { type: String, default: 'India' },
+        fullAddress: { type: String, default: '' }
     },
     amenities: [{
         type: String
@@ -77,7 +81,6 @@ const propertySchema = new mongoose.Schema({
     images: {
         type: [String],
         required: [true, 'Please add at least one image URL'],
-        validate: [v => Array.isArray(v) && v.length > 0, 'Property must have at least one image']
     },
     virtualTour: {
         type: String,
@@ -92,36 +95,56 @@ const propertySchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    premiumGallery: {
+        type: Boolean,
+        default: false
+    },
     views: {
         type: Number,
         default: 0
     },
-    // Agent / Owner Contact Info
+    // Contact Info
     agentName: { type: String, default: '' },
-    agencyName: { type: String, default: '' },
-    // Phone is stored but only revealed after unlock
     phone: { type: String, default: '' },
     whatsapp: { type: String, default: '' },
     verified: { type: Boolean, default: false },
-    // Free contact views allowed before requiring unlock
-    freeViewsAllowed: { type: Number, default: 1 },
-    videoUrl: {
-        type: String,
-        default: ''
-    },
+    
+    // PG Specific
     pgDetails: {
         genderAllowed: { type: String, enum: ['boys', 'girls', 'co-ed', 'none'], default: 'none' },
         sharingType: { type: String, enum: ['single', 'double', 'triple', 'four-plus', 'none'], default: 'none' },
         foodIncluded: { type: Boolean, default: false },
-        foodType: { type: String, enum: ['veg', 'non-veg', 'both', 'none'], default: 'none' },
-        curfewTime: { type: String, default: '' }
+        foodType: { type: String, enum: ['veg', 'non-veg', 'both', 'none'], default: 'none' }
     },
+
+    // Mess & Tiffin Specific
+    messDetails: {
+        mealPlans: [{
+            name: String, // e.g. "Monthly Full Meal"
+            price: Number,
+            description: String
+        }],
+        menuPreview: [String],
+        deliveryAvailable: { type: Boolean, default: false },
+        pureVeg: { type: Boolean, default: false },
+        tiffinService: { type: Boolean, default: false }
+    },
+
+    // Restaurant Specific
+    restaurantDetails: {
+        cuisines: [String],
+        averagePriceForTwo: Number,
+        openingHours: String,
+        deliveryRadius: Number // in km
+    },
+
     rating: {
         average: { type: Number, default: 0 },
         count: { type: Number, default: 0 }
     },
 }, { timestamps: true });
 
+propertySchema.index({ location: '2dsphere' });
 propertySchema.index({ 'address.city': 1, price: 1, type: 1 });
 propertySchema.index({ status: 1 });
 
