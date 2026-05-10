@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2, Sparkles, Star, ChevronLeft, ChevronRight, X, QrCode } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Square, Phone, Mail, Loader2, Sparkles, Star, ChevronLeft, ChevronRight, X, QrCode, Globe } from 'lucide-react';
 import { propertyService, contactService, paymentService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,22 +31,46 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
+  const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
+
+  useEffect(() => {
+    if (!leafletLoaded) {
+      const interval = setInterval(() => {
+        if (window.L) {
+          setLeafletLoaded(true);
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [leafletLoaded]);
+
   useEffect(() => {
     if (property && mapRef.current && !mapInstance.current && window.L) {
-      const lat = parseFloat(property.latitude) || 20.5937;
-      const lng = parseFloat(property.longitude) || 78.9629;
+      // Priority: latitude/longitude fields -> location.coordinates -> Default (Mumbai Center)
+      const lat = parseFloat(property.latitude) || (property.location?.coordinates?.[1]) || 19.0760;
+      const lng = parseFloat(property.longitude) || (property.location?.coordinates?.[0]) || 72.8777;
       
-      const map = window.L.map(mapRef.current).setView([lat, lng], 13);
-      
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+      try {
+        const map = window.L.map(mapRef.current).setView([lat, lng], 14);
+        
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
-      window.L.marker([lat, lng]).addTo(map)
-        .bindPopup(`<b>${property.title}</b>`)
-        .openPopup();
+        window.L.marker([lat, lng]).addTo(map)
+          .bindPopup(`<b>${property.title}</b>`)
+          .openPopup();
 
-      mapInstance.current = map;
+        mapInstance.current = map;
+
+        // Fix for Leaflet tiles not loading correctly in animated containers
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 300);
+      } catch (err) {
+        console.error("Leaflet initialization failed", err);
+      }
     }
 
     return () => {
@@ -55,7 +79,7 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
         mapInstance.current = null;
       }
     };
-  }, [property]);
+  }, [property, leafletLoaded]);
 
   useEffect(() => {
     fetchProperty();
@@ -366,7 +390,17 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
           </div>
 
           <h2 className="text-3xl font-serif font-extrabold text-primary mb-6">Location</h2>
-          <div ref={mapRef} className="w-full h-[450px] rounded-[3rem] border-8 border-white shadow-2xl z-0 mb-10 overflow-hidden"></div>
+          <div className="relative group/map">
+            <div ref={mapRef} className="w-full h-[450px] rounded-[3rem] border-8 border-white shadow-2xl z-0 mb-10 overflow-hidden"></div>
+            <a 
+              href={`https://www.google.com/maps?q=${parseFloat(property.latitude) || (property.location?.coordinates?.[1]) || 19.0760},${parseFloat(property.longitude) || (property.location?.coordinates?.[0]) || 72.8777}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-16 right-8 glass px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 hover:bg-white transition-all shadow-xl opacity-0 group-hover/map:opacity-100 transform translate-y-2 group-hover/map:translate-y-0"
+            >
+              <Globe size={14} className="text-accent" /> Open in Google Maps
+            </a>
+          </div>
         </div>
 
         <div className="w-full lg:w-[450px]">

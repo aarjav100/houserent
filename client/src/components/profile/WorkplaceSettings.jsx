@@ -15,35 +15,58 @@ const WorkplaceSettings = ({ user, onUpdate, showToast }) => {
   const mapInstance = useRef(null);
   const markerRef = useRef(null);
 
+  const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
+
+  useEffect(() => {
+    if (!leafletLoaded) {
+      const interval = setInterval(() => {
+        if (window.L) {
+          setLeafletLoaded(true);
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [leafletLoaded]);
+
   useEffect(() => {
     if (mapRef.current && !mapInstance.current && window.L) {
-      const coords = location.coordinates && location.coordinates.length === 2 
-        ? [location.coordinates[1], location.coordinates[0]] 
-        : [20.5937, 78.9629];
+      const lat = location.coordinates && location.coordinates[1] !== undefined ? location.coordinates[1] : 19.0760;
+      const lng = location.coordinates && location.coordinates[0] !== undefined ? location.coordinates[0] : 72.8777;
+      const coords = [lat, lng];
 
-      const map = window.L.map(mapRef.current).setView(coords, 13);
-      
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+      try {
+        const map = window.L.map(mapRef.current).setView(coords, 13);
+        
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
-      const marker = window.L.marker(coords, { draggable: true }).addTo(map);
-      
-      marker.on('dragend', (e) => {
-        const newPos = e.target.getLatLng();
-        updateLocation(newPos.lat, newPos.lng);
-      });
+        const marker = window.L.marker(coords, { draggable: true }).addTo(map);
+        
+        marker.on('dragend', (e) => {
+          const newPos = e.target.getLatLng();
+          updateLocation(newPos.lat, newPos.lng);
+        });
 
-      map.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        marker.setLatLng([lat, lng]);
-        updateLocation(lat, lng);
-      });
+        map.on('click', (e) => {
+          const { lat, lng } = e.latlng;
+          marker.setLatLng([lat, lng]);
+          updateLocation(lat, lng);
+        });
 
-      mapInstance.current = map;
-      markerRef.current = marker;
+        mapInstance.current = map;
+        markerRef.current = marker;
+
+        // Ensure map renders correctly
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 300);
+      } catch (err) {
+        console.error("Leaflet initialization failed", err);
+      }
     }
-  }, []);
+  }, [leafletLoaded]);
 
   const updateLocation = async (lat, lng) => {
     try {

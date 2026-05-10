@@ -64,23 +64,60 @@ const ListPropertyPage = ({ showToast }) => {
   const mapInstance = useRef(null);
   const markerRef = useRef(null);
 
+  const [leafletLoaded, setLeafletLoaded] = useState(!!window.L);
+
+  useEffect(() => {
+    if (!leafletLoaded) {
+      const interval = setInterval(() => {
+        if (window.L) {
+          setLeafletLoaded(true);
+          clearInterval(interval);
+        }
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [leafletLoaded]);
+
   useEffect(() => {
     if (step === 2 && mapRef.current && !mapInstance.current && window.L) {
-      const defaultLat = 20.5937; // Center of India
-      const defaultLng = 78.9629;
+      // Default to Mumbai if no city provided, otherwise try to center on city
+      const defaultLat = 19.0760; 
+      const defaultLng = 72.8777;
       
-      const map = window.L.map(mapRef.current).setView([defaultLat, defaultLng], 5);
-      
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+      try {
+        const map = window.L.map(mapRef.current).setView([defaultLat, defaultLng], 5);
+        
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
 
-      map.on('click', async (e) => {
-        const { lat, lng } = e.latlng;
-        updateLocation(lat, lng, map);
-      });
+        // If user provided a city in Step 1, try to center the map there
+        if (formData.address.city) {
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${formData.address.city}&countrycodes=in&limit=1`)
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.length > 0) {
+                const { lat, lon } = data[0];
+                map.setView([parseFloat(lat), parseFloat(lon)], 12);
+              }
+            })
+            .catch(err => console.error("City centering failed", err));
+        }
 
-      mapInstance.current = map;
+        map.on('click', async (e) => {
+          const { lat, lng } = e.latlng;
+          updateLocation(lat, lng, map);
+        });
+
+        mapInstance.current = map;
+
+        // Fix for tiles not loading in step transitions
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 300);
+      } catch (err) {
+        console.error("Leaflet initialization failed", err);
+      }
     }
 
     return () => {
@@ -90,7 +127,7 @@ const ListPropertyPage = ({ showToast }) => {
         markerRef.current = null;
       }
     };
-  }, [step]);
+  }, [step, formData.address.city, leafletLoaded]);
 
   const updateLocation = async (lat, lng, map) => {
     // Add/Move Marker

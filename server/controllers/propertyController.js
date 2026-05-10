@@ -170,7 +170,7 @@ exports.createProperty = async (req, res) => {
             longitude: lng,
             location: {
                 type: 'Point',
-                coordinates: [lng, lat]
+                coordinates: [lng || 72.8777, lat || 19.0760]
             },
             parking: parseNum(req.body.parking),
             address,
@@ -273,6 +273,14 @@ exports.updateProperty = async (req, res) => {
         if (req.body.latitude) property.latitude = parseNum(req.body.latitude);
         if (req.body.longitude) property.longitude = parseNum(req.body.longitude);
         if (req.body.parking) property.parking = parseNum(req.body.parking);
+
+        // Sync GeoJSON location field
+        if (property.latitude !== undefined && property.longitude !== undefined) {
+            property.location = {
+                type: 'Point',
+                coordinates: [property.longitude, property.latitude]
+            };
+        }
 
         property.address = address;
         property.pgDetails = pgDetails;
