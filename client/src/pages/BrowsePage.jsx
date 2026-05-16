@@ -4,6 +4,7 @@ import PropertyCard from '../components/property/PropertyCard';
 import { propertyService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Navigation, Sparkles } from 'lucide-react';
+import AdBanner from '../components/common/AdBanner';
 
 const BrowsePage = ({ onSave, savedProperties }) => {
   const [view, setView] = useState('grid');
@@ -210,6 +211,9 @@ const BrowsePage = ({ onSave, savedProperties }) => {
             </div>
           </>
         )}
+      </div>
+      <div className="max-w-7xl mx-auto px-4 mb-8">
+        <AdBanner />
       </div>
     </div>
   );

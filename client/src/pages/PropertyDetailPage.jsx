@@ -5,6 +5,7 @@ import { propertyService, contactService, paymentService } from '../services/api
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import UPIMethodModal from '../components/common/UPIMethodModal';
+import AdBanner from '../components/common/AdBanner';
 
 const primaryColor = '#0F3D3E'; // Updated to new theme primary
 
@@ -586,6 +587,9 @@ const PropertyDetailPage = ({ onSave, savedProperties }) => {
         orderId={currentOrderId}
         onPaymentSuccess={handleUPISuccess}
       />
+      <div className="my-12">
+        <AdBanner />
+      </div>
     </motion.div>
   );
 };
